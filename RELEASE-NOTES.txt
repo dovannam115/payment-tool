@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.0.7 (2026-10-15)
+- The translate prompt is now turned off by the page itself. The Edge flag in 1.0.6
+  did nothing when Edge was already running.
+
 1.0.6 (2026-10-15)
 - Edge no longer asks to translate the tool window on every start.
 
