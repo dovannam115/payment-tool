@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Tool</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --bg:#262624; --elev:#2F2D29; --card:#34322D; --hover:#3D3B36;
+    --line:#46443F; --line2:#4D4A45;
+    --fg:#F5F4ED; --muted:#A19D93; --dim:#777267;
+    --ember:#c96442; --ember-lit:#d97757;
+    --good:#34d399; --warn:#f59e0b; --bad:#f87171;
+    --console:#1F1E1C; --console-fg:#C9C5B9;
+  }
+  :root[data-theme="light"]{
+    --bg:#FAFAF7; --elev:#F2F0EA; --card:#FFFFFF; --hover:#EFEDE5;
+    --line:#E3E0D6; --line2:#D6D2C6;
+    --fg:#2E2D2A; --muted:#6B675E; --dim:#8D8878;
+    --console:#F4F2EC; --console-fg:#3A3833;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--fg); display:flex;
+    font:14px/1.45 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; letter-spacing:-.006em;
+    user-select:none;
+  }
+  input,textarea,.sel{user-select:text}
+  ::selection{background:rgba(217,119,87,.30)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* sidebar */
+  aside{
+    width:212px; flex:0 0 212px; background:var(--elev); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:16px 12px; gap:18px;
+  }
+  .brand{padding:4px 8px 0}
+  .brand b{display:block; font-size:15px; font-weight:700; letter-spacing:.14em; text-transform:uppercase}
+  .brand span{display:block; color:var(--dim); font-size:11px; letter-spacing:.1em; margin-top:3px; text-transform:uppercase}
+  nav{display:flex; flex-direction:column; gap:2px}
+  nav button{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:none; border:0; color:var(--muted); text-align:left; cursor:pointer;
+    padding:9px 10px; border-radius:9px; font:inherit; font-size:13.5px;
+  }
+  nav button:hover{background:var(--hover); color:var(--fg)}
+  nav button.on{background:var(--card); color:var(--fg)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good);display:none}
+  .dot.show{display:block}
+  .side-end{margin-top:auto; display:flex; flex-direction:column; gap:8px; padding:0 2px}
+  .side-end .row{display:flex; gap:6px}
+  .ver{color:var(--dim); font-size:11.5px; padding:0 8px}
+
+  /* main */
+  main{flex:1; min-width:0; display:flex; flex-direction:column}
+  header{
+    display:flex; align-items:center; gap:10px; padding:16px 22px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:17px; margin:0; font-weight:650}
+  header .sp{flex:1}
+  .wrap{flex:1; overflow:auto; padding:18px 22px 24px; display:flex; flex-direction:column; gap:14px}
+
+  /* buttons */
+  button{font:inherit; cursor:pointer; transition:background .18s,border-color .18s,color .18s,opacity .18s}
+  button:active:not(:disabled){transform:scale(.985)}
+  .btn{background:var(--card); color:var(--fg); border:1px solid var(--line); padding:8px 13px; border-radius:9px}
+  .btn:hover:not(:disabled){background:var(--hover); border-color:var(--line2)}
+  .btn.pri{background:var(--ember); border-color:var(--ember); color:#fff}
+  .btn.pri:hover:not(:disabled){background:var(--ember-lit); border-color:var(--ember-lit)}
+  .btn.sm{padding:5px 10px; border-radius:8px; font-size:12.5px}
+  .btn.gho{background:transparent}
+  .btn:disabled{opacity:.42; cursor:default}
+
+  /* cards */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:13px; padding:15px 16px}
+  .card h2{margin:0 0 3px; font-size:14px; font-weight:650}
+  .card p{margin:0; color:var(--muted); font-size:12.5px}
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+  .step{display:flex; flex-direction:column; gap:11px}
+  .step .act{margin-top:auto; display:flex; gap:7px; align-items:center; flex-wrap:wrap}
+  .no{font-size:11px; color:var(--dim); letter-spacing:.12em; text-transform:uppercase}
+  label.ck{display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12.5px; cursor:pointer}
+  input[type=checkbox]{accent-color:var(--ember); width:14px; height:14px; cursor:pointer}
+
+  /* table */
+  table{width:100%; border-collapse:collapse}
+  th{
+    text-align:left; font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase;
+    letter-spacing:.07em; padding:0 10px 8px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  td{padding:9px 10px; border-bottom:1px solid var(--line); font-size:13px; vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--hover)}
+  td.n{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); width:64px}
+  td.who{font-weight:600}
+  .pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; white-space:nowrap}
+  .pill.ok{background:rgba(52,211,153,.14); color:var(--good)}
+  .pill.wait{background:rgba(245,158,11,.14); color:var(--warn)}
+  .pill.err{background:rgba(248,113,113,.15); color:var(--bad)}
+  .link{background:none;border:0;color:var(--muted);padding:2px 4px;border-radius:6px;font-size:12.5px}
+  .link:hover{color:var(--fg); background:var(--hover)}
+  .detail td{background:var(--elev); color:var(--muted); font-size:12.5px; padding:4px 10px 10px}
+  .detail .ln{display:grid; grid-template-columns:250px 78px 92px 110px 1fr; gap:12px;
+              padding:2px 0; white-space:nowrap; overflow:hidden}
+  .detail .ln b{font-weight:600; color:var(--fg); overflow:hidden; text-overflow:ellipsis}
+  .detail .ln .r{text-align:right; font-variant-numeric:tabular-nums}
+  .detail .ln .s{overflow:hidden; text-overflow:ellipsis}
+  .detail .bad{color:var(--bad)}
+  .empty{color:var(--muted); padding:18px 4px; font-size:13px}
+
+  /* console */
+  .run{display:flex; flex-direction:column; gap:10px}
+  .run .head{display:flex; align-items:center; gap:10px}
+  .run .head b{font-size:13.5px}
+  pre{
+    margin:0; background:var(--console); color:var(--console-fg); border:1px solid var(--line);
+    border-radius:11px; padding:12px 13px; min-height:120px; max-height:42vh; overflow:auto;
+    font:12.3px/1.55 ui-monospace,"Cascadia Mono",Consolas,monospace; white-space:pre-wrap;
+    user-select:text;
+  }
+  .ask{
+    display:flex; align-items:center; gap:12px; background:rgba(201,100,66,.12);
+    border:1px solid rgba(201,100,66,.4); border-radius:11px; padding:11px 13px;
+  }
+  .ask span{flex:1; font-size:13px}
+  .spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--ember);animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* update + guide */
+  .big{font-size:22px; font-weight:650}
+  .notes{
+    background:var(--console); border:1px solid var(--line); border-radius:11px; padding:11px 13px;
+    color:var(--console-fg); font:12.5px/1.6 ui-monospace,Consolas,monospace; white-space:pre-wrap;
+    max-height:34vh; overflow:auto; user-select:text;
+  }
+  .inp{
+    background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:9px;
+    padding:8px 11px; font:inherit; font-size:13px; flex:1; min-width:0;
+  }
+  .inp:focus{outline:none; border-color:var(--line2)}
+  iframe{flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; min-height:70vh}
+  .hide{display:none !important}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><b>Payment Tool</b><span>PVI Digital</span></div>
+  <nav>
+    <button id="nav-work" class="on" onclick="go('work')">Nhập đơn</button>
+    <button id="nav-guide" onclick="go('guide')">Hướng dẫn</button>
+    <button id="nav-upd" onclick="go('upd')">Cập nhật<span class="dot" id="updDot"></span></button>
+  </nav>
+  <div class="side-end">
+    <div class="row">
+      <button class="btn sm gho" style="flex:1" onclick="toggleTheme()" id="themeBtn">Nền sáng</button>
+    </div>
+    <div class="row">
+      <button class="btn sm gho" style="flex:1" onclick="quit()">Thoát</button>
+    </div>
+    <div class="ver" id="ver">v...</div>
+  </div>
+</aside>
+
+<main>
+  <header>
+    <h1 id="title">Nhập đơn đề nghị thanh toán</h1>
+    <div class="sp"></div>
+    <button class="btn sm" onclick="open_('data')">Thư mục data</button>
+    <button class="btn sm" onclick="open_('checklog')">Kết quả kiểm tra</button>
+    <button class="btn sm" onclick="open_('input')">File đơn</button>
+  </header>
+
+  <!-- ============ work ============ -->
+  <div class="wrap" id="v-work">
+    <div class="steps">
+      <div class="card step">
+        <div><div class="no">Bước 1</div><h2>Kiểm tra hóa đơn</h2>
+          <p>Chạy Invoice Check cho hóa đơn chưa có kết quả, lưu PDF vào thư mục check của từng người.</p></div>
+        <div class="act">
+          <button class="btn pri" id="b-check" onclick="run('check')">Kiểm tra</button>
+          <label class="ck"><input type="checkbox" id="redo"> Kiểm tra lại cả HĐ đã có</label>
+        </div>
+      </div>
+      <div class="card step">
+        <div><div class="no">Bước 2</div><h2>Điền đơn lên cổng</h2>
+          <p>Tự tạo file đơn, điền trường, import XML, đính tờ trình và file check, sửa từng dòng hóa đơn. Chưa đăng nhập thì tool mở sẵn cổng để đăng nhập rồi tự chạy tiếp. Dừng trước nút Lưu.</p></div>
+        <div class="act"><button class="btn pri" id="b-fill" onclick="run('fill')">Điền đơn</button>
+          <button class="btn gho sm" onclick="run('login')">Đăng nhập cổng</button></div>
+      </div>
+      <div class="card step">
+        <div><div class="no">Bước 3</div><h2>Chuyển sang done</h2>
+          <p>Người đã bấm Lưu trên cổng thì chuyển thư mục của họ sang done theo tháng, để đợt sau không nộp trùng.</p></div>
+        <div class="act"><button class="btn" id="b-arch" onclick="run('archive')">Đã lưu xong</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <h2 style="margin:0">Người trong đợt này</h2>
+        <span class="no" id="cnt"></span>
+        <div class="sp" style="flex:1"></div>
+        <button class="btn sm gho" onclick="pickAll(true)">Chọn tất cả</button>
+        <button class="btn sm gho" onclick="pickAll(false)">Bỏ chọn</button>
+        <button class="btn sm gho" onclick="load()">Tải lại</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:30px"></th><th>Họ tên</th><th class="n">Hóa đơn</th><th class="n">PDF</th>
+          <th class="n">Check</th><th class="n">Tờ trình</th><th>Trạng thái</th><th style="width:150px"></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty hide" id="noppl">Chưa có ai trong thư mục data. Mở "Thư mục data" rồi tạo 1 thư mục cho mỗi người, thả XML + PDF hóa đơn + PDF tờ trình vào đó.</div>
+    </div>
+
+    <div class="card run" id="runCard">
+      <div class="head">
+        <div class="spin hide" id="spin"></div>
+        <b id="runLabel">Màn hình chạy</b>
+        <div class="sp" style="flex:1"></div>
+        <button class="btn sm gho hide" id="b-stop" onclick="stop()">Dừng</button>
+        <button class="btn sm gho" onclick="document.getElementById('out').textContent=''">Xóa màn hình</button>
+      </div>
+      <div class="ask hide" id="askBar">
+        <span id="askText"></span>
+        <button class="btn pri sm" onclick="answer()">Tiếp tục</button>
+      </div>
+      <pre id="out">Chọn người ở bảng trên rồi bấm một bước. Không chọn ai thì Bước 1 và Bước 2 làm cho tất cả.</pre>
+    </div>
+  </div>
+
+  <!-- ============ guide ============ -->
+  <div class="wrap hide" id="v-guide">
+    <iframe id="gframe" src=""></iframe>
+  </div>
+
+  <!-- ============ update ============ -->
+  <div class="wrap hide" id="v-upd">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div>
+          <div class="no">Bản đang dùng</div>
+          <div class="big" id="curVer">...</div>
+        </div>
+        <div class="sp" style="flex:1"></div>
+        <button class="btn sm" onclick="checkUpd(true)">Kiểm tra bản mới</button>
+      </div>
+      <p id="updMsg" style="margin-top:10px">Đang kiểm tra...</p>
+      <div class="act" style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn pri hide" id="b-upd" onclick="run('update')">Tải và cài bản mới</button>
+        <button class="btn hide" id="b-restart" onclick="restart()">Khởi động lại tool</button>
+      </div>
+    </div>
+    <div class="card hide" id="notesCard">
+      <h2>Có gì mới</h2>
+      <div class="notes" id="notes"></div>
+    </div>
+    <div class="card">
+      <h2>Cài từ file zip</h2>
+      <p>Khi máy không vào được GitHub: dán đường dẫn file zip source rồi bấm Cài.</p>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input class="inp" id="zipPath" placeholder="C:\Users\...\Downloads\thanhtoan-new-main.zip">
+        <button class="btn" onclick="runZip()">Cài</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+let ST = {people:[]}, since = 0, polling = null, busy = false;
+
+async function api(path, body){
+  const o = {headers:{"X-Token":T,"Content-Type":"application/json"}};
+  if(body !== undefined){ o.method = "POST"; o.body = JSON.stringify(body); }
+  const r = await fetch(path, o);
+  try { return await r.json(); } catch(e){ return {error:"bad response"}; }
+}
+
+/* ---------- theme ---------- */
+function toggleTheme(){
+  const dark = document.documentElement.dataset.theme !== "light";
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  $("themeBtn").textContent = dark ? "Nền tối" : "Nền sáng";
+  try{ localStorage.setItem("pt_theme", dark ? "light" : "dark"); }catch(e){}
+}
+try{
+  if(localStorage.getItem("pt_theme") === "light"){
+    document.documentElement.dataset.theme = "light";
+    $("themeBtn").textContent = "Nền tối";
+  }
+}catch(e){}
+
+/* ---------- views ---------- */
+const TITLES = {work:"Nhập đơn đề nghị thanh toán", guide:"Hướng dẫn vận hành", upd:"Cập nhật tool"};
+function go(v){
+  for(const k of ["work","guide","upd"]){
+    $("v-"+k).classList.toggle("hide", k !== v);
+    $("nav-"+(k === "upd" ? "upd" : k)).classList.toggle("on", k === v);
+  }
+  $("title").textContent = TITLES[v];
+  if(v === "guide" && !$("gframe").src) $("gframe").src = "/guide";
+  if(v === "upd") checkUpd(false);
+}
+
+/* ---------- state ---------- */
+function picked(){
+  return [...document.querySelectorAll("input.pk:checked")].map(c => c.dataset.name);
+}
+function pickAll(on){
+  document.querySelectorAll("input.pk").forEach(c => { c.checked = on; });
+}
+function money(v){
+  const n = Number(String(v || "").replace(/[^\d.-]/g, ""));
+  return isFinite(n) && n ? Math.round(n).toLocaleString("vi-VN") : esc(v);
+}
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function drawPeople(){
+  const keep = new Set(picked());
+  const tb = $("rows"); tb.innerHTML = "";
+  const ppl = ST.people || [];
+  $("noppl").classList.toggle("hide", ppl.length > 0);
+  $("cnt").textContent = ppl.length ? ppl.length + " người, " + ppl.reduce((a,p)=>a+p.invoices,0) + " hóa đơn" : "";
+  ppl.forEach((p, i) => {
+    let pill = '<span class="pill wait">Chưa kiểm tra</span>';
+    if(p.problems.length) pill = '<span class="pill err">' + p.problems.length + ' hóa đơn cần xem</span>';
+    else if(p.pending_check === 0 && p.invoices) pill = '<span class="pill ok">Đã kiểm tra</span>';
+    else if(p.checked) pill = '<span class="pill wait">Còn ' + p.pending_check + ' chưa kiểm tra</span>';
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td><input type="checkbox" class="pk" data-name="' + esc(p.name) + '"' + (keep.has(p.name) ? " checked" : "") + '></td>' +
+      '<td class="who">' + esc(p.name) + '</td>' +
+      '<td class="n">' + p.invoices + '</td>' +
+      '<td class="n">' + p.pdf + '</td>' +
+      '<td class="n">' + p.checks + '</td>' +
+      '<td class="n">' + p.totrinh + '</td>' +
+      '<td>' + pill + '</td>' +
+      '<td style="text-align:right">' +
+        '<button class="link" onclick="toggle(' + i + ')">Chi tiết</button>' +
+        '<button class="link" onclick="open_(\'person\',\'' + esc(p.name).replace(/'/g, "\\'") + '\')">Mở thư mục</button>' +
+      '</td>';
+    tb.appendChild(tr);
+    const d = document.createElement("tr");
+    d.className = "detail hide"; d.id = "d" + i;
+    d.innerHTML = '<td colspan="8">' + (p.detail.map(x =>
+        '<div class="ln' + (x.problem ? ' bad' : '') + '"><b>' + esc(x.stem) + '</b>' +
+        '<span>số ' + esc(x.so) + '</span><span>' + esc(x.ngay) + '</span>' +
+        '<span>' + esc(x.tong) + '</span><span>' + esc(x.seller) + '</span>' +
+        '<span>' + (x.pdf ? '' : 'thiếu PDF ') + (x.check ? '' : 'chưa có check ') + esc(x.problem) + '</span></div>'
+      ).join("") || '<div class="ln">Không có hóa đơn XML, chỉ có tờ trình.</div>') + '</td>';
+    tb.appendChild(d);
+  });
+}
+function toggle(i){ $("d" + i).classList.toggle("hide"); }
+
+async function load(){
+  const s = await api("/api/state");
+  if(s.error) return;
+  ST = s;
+  $("ver").textContent = "v" + s.version;
+  $("curVer").textContent = "v" + s.version;
+  drawPeople();
+  if(s.update && s.update.available) $("updDot").classList.add("show");
+  if(s.busy && !polling) startPoll(s.job ? s.job.label : "Đang chạy");
+  setBusy(s.busy);
+}
+
+function setBusy(on){
+  busy = on;
+  ["b-check","b-fill","b-arch","b-upd"].forEach(id => { const b = $(id); if(b) b.disabled = on; });
+  $("spin").classList.toggle("hide", !on);
+  $("b-stop").classList.toggle("hide", !on);
+}
+
+/* ---------- jobs ---------- */
+const LABELS = {check:"Kiểm tra hóa đơn", fill:"Điền đơn lên cổng", archive:"Chuyển sang done",
+                login:"Đăng nhập cổng", update:"Cập nhật tool"};
+async function run(action, extra){
+  if(busy) return;
+  const names = picked();
+  if(action === "archive" && !names.length){
+    say("Chọn người đã lưu trên cổng ở bảng trên trước, rồi bấm lại.");
+    return;
+  }
+  if(action === "fill" && !names.length && (ST.people || []).length > 1){
+    if(!confirm("Chưa chọn ai. Điền đơn cho tất cả " + ST.people.length + " người?")) return;
+  }
+  const body = Object.assign({action, names, redo: $("redo").checked}, extra || {});
+  $("out").textContent = "";
+  since = 0;
+  const r = await api("/api/run", body);
+  if(r.error){ say("Không chạy được: " + r.error); return; }
+  startPoll(LABELS[action] || action);
+}
+function runZip(){
+  const z = $("zipPath").value.trim();
+  if(!z){ say("Dán đường dẫn file zip trước."); return; }
+  go("work"); run("update", {mode:"local", zip:z});
+}
+function say(msg){
+  const o = $("out"); o.textContent += (o.textContent ? "\n" : "") + msg; o.scrollTop = o.scrollHeight;
+}
+function startPoll(label){
+  $("runLabel").textContent = label;
+  setBusy(true);
+  if(polling) clearInterval(polling);
+  polling = setInterval(poll, 700);
+  poll();
+}
+async function poll(){
+  const r = await api("/api/job?since=" + since);
+  const j = r.job;
+  if(!j){ return; }
+  if(j.lines && j.lines.length){
+    since += j.lines.length;
+    const o = $("out");
+    const atEnd = o.scrollHeight - o.scrollTop - o.clientHeight < 40;
+    o.textContent += (o.textContent ? "\n" : "") + j.lines.join("\n");
+    if(atEnd) o.scrollTop = o.scrollHeight;
+  }
+  $("runLabel").textContent = (LABELS[j.action] || j.label) +
+      (j.state === "login" ? " - đang chờ đăng nhập ở cửa sổ Edge" : "");
+  const ask = j.state === "waiting" && j.ask;
+  $("askBar").classList.toggle("hide", !ask);
+  if(ask) $("askText").textContent = j.ask;
+  if(j.state === "done"){
+    clearInterval(polling); polling = null;
+    setBusy(false);
+    $("askBar").classList.add("hide");
+    load();
+    if(j.action === "update" && (j.rc === null || j.rc === 0)) $("b-restart").classList.remove("hide");
+  }
+}
+async function answer(){ $("askBar").classList.add("hide"); await api("/api/answer", {text:""}); }
+async function stop(){ await api("/api/stop", {}); }
+
+/* ---------- misc ---------- */
+async function open_(what, name){
+  const r = await api("/api/open", {what, name});
+  if(r.error) say(r.error);
+}
+async function checkUpd(force){
+  if(!force && ST.update){ showUpd(ST.update); return; }
+  $("updMsg").textContent = "Đang kiểm tra...";
+  const u = await api("/api/update/check");
+  ST.update = u; showUpd(u);
+}
+function showUpd(u){
+  if(!u) return;
+  $("curVer").textContent = "v" + (u.current || ST.version || "?");
+  $("b-upd").classList.add("hide");
+  $("notesCard").classList.add("hide");
+  if(!u.configured){
+    $("updMsg").textContent = "Kênh cập nhật chưa được cấu hình (app\\update.json chưa có repo).";
+  } else if(u.error){
+    $("updMsg").textContent = "Không kiểm tra được: " + u.error + ". Dùng cách cài từ file zip bên dưới.";
+  } else if(u.available){
+    $("updMsg").textContent = "Có bản mới v" + u.latest + ". Bấm Tải và cài, xong rồi bấm Khởi động lại tool.";
+    $("b-upd").classList.remove("hide");
+    $("updDot").classList.add("show");
+  } else {
+    $("updMsg").textContent = "Đang dùng bản mới nhất (v" + u.latest + ").";
+    $("updDot").classList.remove("show");
+  }
+  if(u.notes){ $("notes").textContent = u.notes.trim(); $("notesCard").classList.remove("hide"); }
+}
+async function restart(){
+  await api("/api/restart", {});
+  document.body.innerHTML = '<div style="margin:auto;text-align:center;color:#A19D93;font:14px \'Segoe UI\'">' +
+    'Đang khởi động lại, cửa sổ mới sẽ tự mở sau vài giây.<br>Đóng cửa sổ này.</div>';
+}
+async function quit(){
+  if(busy && !confirm("Đang chạy dở. Thoát luôn?")) return;
+  await api("/api/quit", {});
+  document.body.innerHTML = '<div style="margin:auto;text-align:center;color:#A19D93;font:14px \'Segoe UI\'">' +
+    'Đã thoát. Đóng cửa sổ này, mở lại bằng Payment Tool.bat.</div>';
+}
+
+setInterval(() => { api("/api/ping", {}); }, 3000);
+setInterval(() => { if(!busy) load(); }, 6000);
+load();
+</script>
+</body>
+</html>

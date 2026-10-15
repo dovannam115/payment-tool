@@ -1,0 +1,13 @@
+Payment Tool - release notes
+
+1.0.0 (2026-10-15)
+- New window-based interface. No more typing numbers in a black console.
+- One screen lists every person in data, with invoice / PDF / check / to trinh counts
+  and a status badge. Tick the people you want, then press a step.
+- Step 1 Check invoices, step 2 Fill on the portal, step 3 Move saved people to done.
+- Filling now handles the portal login by itself: if the session is gone it opens the
+  login page, waits for you, and carries on without asking.
+- Built-in Update tab: it reads the latest version from GitHub and installs it,
+  or installs from a local zip when the machine cannot reach GitHub.
+- Dropped the two steps nobody used: copy invoices from OneDrive, and build the
+  request file as a separate step (filling rebuilds it anyway).

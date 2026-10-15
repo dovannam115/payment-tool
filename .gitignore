@@ -1,0 +1,13 @@
+# runtime and data stay out of the repo: the update only replaces code
+data/
+done/
+dist/
+people.xlsx
+.edge-profile/
+app/node.exe
+app/node_modules/
+app/pyembed/
+app/dump/
+app/_backup_*/
+__pycache__/
+*.pyc
