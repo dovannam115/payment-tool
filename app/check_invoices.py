@@ -54,7 +54,7 @@ def check_all(people, redo=False):
         for k, p in idx.items():
             for x in todo[p]: shutil.copy2(x, os.path.join(tmp, f"{k}__{os.path.basename(x)}"))
         node = IC_NODE if os.path.exists(IC_NODE) else "node"
-        jobs = str(min(total, 12))   # check phase: up to 12 in parallel (export is capped inside Invoice Check)
+        jobs = str(min(total, 5))    # check phase: 5 in parallel, 10 got throttled by the site (export is capped inside Invoice Check)
         print(f"  Checking {total} invoice(s) of {sum(1 for x in todo.values() if x)} person(s) in one run ({jobs} parallel)...")
         sys.stdout.flush()
         # stdout/stderr passed on purpose: without it the child writes to its own console

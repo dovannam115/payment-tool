@@ -170,6 +170,11 @@ async function fetchResult(ctx, file) {
 // ---------- open check-result page, read status, clean overlays ----------
 async function openResultPage(ctx, id) {
   const rp = await ctx.newPage();
+  try { return await readResultPage(rp, id); }
+  catch (e) { await rp.close().catch(() => {}); throw e; }
+}
+
+async function readResultPage(rp, id) {
   const url = `${SITE}#/xml-info?id=${id}&excludeTawk=Y`;
   await rp.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   // load up to 3x: if the tax-code (MST) section says "couldn't fetch" (GDT throttled), retry
@@ -192,7 +197,7 @@ async function openResultPage(ctx, id) {
     // "TÌNH TRẠNG HOẠT ĐỘNG CỦA MST" -> "Người bán:" block -> "Trạng thái: ..."
     const sec = t.split(/TÌNH TRẠNG HOẠT ĐỘNG CỦA MST/i)[1] || '';
     const seller = (sec.split(/Người mua:/i)[0].split(/Người bán:/i)[1]) || '';
-    const m = seller.match(/Trạng thái:\s*([^\n]+)/i);
+    const m = seller.match(/Trạng thái:[ \t]*([^\n]*)/i);   // blank on the site -> '' -> Unknown, never the next line
     return {
       status: /Không hợp lệ/i.test(t) ? 'INVALID' : /Hợp lệ/i.test(t) ? 'VALID' : '?',
       taxStatus: m ? m[1].trim() : '',
@@ -297,7 +302,7 @@ async function savePdf(ctx, rp, outFile) {
     await runPool(results, async (r) => {
       if (!r.id) return;
       try {
-        const res = await openResultPage(ctx, r.id), rp = res.rp;
+        const res = await openResultPage(ctx, r.id).catch(() => openResultPage(ctx, r.id)), rp = res.rp;
         setResult(r, res);
         const out = path.join(outDir, `${path.basename(r.file, path.extname(r.file))}.pdf`);
         await savePdf(ctx, rp, out); r.out = out;

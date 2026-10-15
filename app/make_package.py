@@ -7,7 +7,7 @@ from layout import ROOT, APP
 
 TOP   = "Payment-Tool"
 OUT   = os.path.join(ROOT, "dist", "Payment_Tool.zip")
-FILES = ["Payment Tool.bat", "Operating_Guide.html", "people.xlsx", "VERSION", "RELEASE-NOTES.txt"]
+FILES = ["Install.bat", "Payment Tool.bat", "Operating_Guide.html", "people.xlsx", "VERSION", "RELEASE-NOTES.txt"]
 EMPTY = ["data/", "data/_hold/", "done/", "app/dump/"]
 
 def skip_app(rel):

@@ -31,7 +31,7 @@ def main():
         print()
         print("  1. Kiểm tra hóa đơn")
         print("  2. Điền đơn lên cổng (chưa đăng nhập thì tool tự mở cổng để đăng nhập)")
-        print("  3. Chuyển người đã Lưu sang done")
+        print("  3. Hoàn tất (cất hồ sơ đã Lưu)")
         print()
         print("  4. Mở file đơn          5. Mở kết quả kiểm tra")
         print("  6. Mở thư mục data      7. Đăng nhập cổng")

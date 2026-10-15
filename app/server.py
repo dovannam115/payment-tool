@@ -208,7 +208,8 @@ def person_rows():
     for name in people_dirs():
         sc = scan_full(name)
         invs, totrinh = sc["invoices"], sc["totrinh"]
-        if not invs and not totrinh and not sc["stray"] and not sc["misplaced"]: continue
+        # an empty folder still shows: it was just made from "Thêm hồ sơ" and waits for its files
+        empty = not invs and not totrinh and not sc["stray"] and not sc["misplaced"]
         logrows = read_check_log(name)
         cdir = os.path.join(DATA, name, "check")
         have = [f.lower() for f in os.listdir(cdir)] if os.path.isdir(cdir) else []
@@ -246,7 +247,7 @@ def person_rows():
         rows.append({"name": name, "invoices": len(invs),
                      "pdf": sum(1 for i in invs if i["pdf"]), "checks": checks,
                      "totrinh": len(totrinh), "checked": bool(logrows),
-                     "pending_check": pending,
+                     "pending_check": pending, "empty": empty,
                      "problems": problems, "warnings": sc["warnings"], "detail": detail})
     return rows
 
@@ -310,7 +311,7 @@ def save_one(person, fname, data, sub=""):
     if ext not in (".xml", ".pdf") or base.startswith(("~$", ".")):
         return {"skipped": base, "note": "không phải XML/PDF"}
     if base.lower() in done_names(person):
-        return {"skipped": base, "note": "đã nộp trước đây (có trong done)"}
+        return {"skipped": base, "note": "đã nộp trước đây (có trong hồ sơ đã hoàn tất)"}
     tdir = os.path.join(pdir, "check") if sub == "check" else pdir
     os.makedirs(tdir, exist_ok=True)
     target, note = os.path.join(tdir, base), ""
@@ -341,6 +342,74 @@ def tidy(person):
         notes.append("%s: khác tên XML nhưng khớp số hóa đơn %s, đã đổi tên thành %s"
                      % (os.path.basename(iv["pdf"]), iv["sh"].lstrip("0"), os.path.basename(dest)))
     return notes
+
+
+def make_dirs(raw_names):
+    """Empty data\\<Họ tên>\\ folders picked in "Thêm hồ sơ" before any file is added."""
+    made, bad = [], []
+    for raw in raw_names:
+        n = clean_name(raw)
+        if not n: bad.append(raw); continue
+        os.makedirs(os.path.join(DATA, n), exist_ok=True); made.append(n)
+    return {"made": made, "bad": bad}
+
+
+# ------------------------------------------------------------------ people list (people.xlsx, edited in the app)
+PEOPLE_COLS = [("Ten", "ten"), ("Ma_CBCNV", "ma"), ("Ngan_Hang", "ngan_hang"), ("So_Tai_Khoan", "so_tk")]
+
+def people_read():
+    if not os.path.exists(PEOPLE): return {"rows": []}
+    from openpyxl import load_workbook
+    wb = load_workbook(PEOPLE, data_only=True)
+    ws = wb["DATA"] if "DATA" in wb.sheetnames else wb.active
+    hdr = [str(c.value or "").strip() for c in ws[1]]
+    out = []
+    for r in ws.iter_rows(min_row=2, values_only=True):
+        row = {k: (" ".join(str(r[hdr.index(col)]).split()) if col in hdr and hdr.index(col) < len(r)
+                   and r[hdr.index(col)] not in (None, "") else "") for col, k in PEOPLE_COLS}
+        if row["ten"]: out.append(row)
+    return {"rows": out}
+
+
+def people_write(rows):
+    """Rewrite the DATA sheet of people.xlsx, keeping the guide sheet and the look of the file."""
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    clean, seen, dup = [], {}, []
+    for r in rows:
+        ten = " ".join(unicodedata.normalize("NFC", str(r.get("ten") or "")).split())
+        if not ten: continue
+        if BAD_NAME.search(ten): return {"error": "Tên có ký tự không hợp lệ: " + ten}
+        if fold(ten) in seen: dup.append(ten); continue
+        seen[fold(ten)] = 1
+        clean.append({"ten": ten, **{k: " ".join(str(r.get(k) or "").split()) for _, k in PEOPLE_COLS[1:]}})
+    if dup: return {"error": "Tên bị trùng: " + ", ".join(dup)}
+    if os.path.exists(PEOPLE):
+        wb = load_workbook(PEOPLE)
+        ws = wb["DATA"] if "DATA" in wb.sheetnames else wb.active
+        if ws.max_row > 1: ws.delete_rows(2, ws.max_row - 1)
+        try: shutil.copy2(PEOPLE, os.path.join(DUMP, "people_prev.xlsx"))
+        except Exception: pass
+    else:
+        wb = Workbook(); ws = wb.active; ws.title = "DATA"
+    thin = Side(style="thin", color="BFBFBF"); bd = Border(left=thin, right=thin, top=thin, bottom=thin)
+    for i, (col, _) in enumerate(PEOPLE_COLS, 1):
+        c = ws.cell(row=1, column=i, value=col)
+        c.font = Font(name="Arial", bold=True, color="FFFFFF", size=10)
+        c.fill = PatternFill("solid", start_color="183665"); c.border = bd
+        c.alignment = Alignment(horizontal="center")
+    for ri, r in enumerate(clean, 2):
+        for ci, (_, k) in enumerate(PEOPLE_COLS, 1):
+            c = ws.cell(row=ri, column=ci, value=r[k] or None)
+            c.font = Font(name="Arial", size=10); c.border = bd
+            if k == "so_tk": c.number_format = "@"   # keep leading zeros of account numbers
+    ws.freeze_panes = "A2"
+    for k, w in zip("ABCD", (24, 16, 22, 20)): ws.column_dimensions[k].width = w
+    try: wb.save(PEOPLE)
+    except PermissionError:
+        return {"error": "people.xlsx đang mở trong Excel. Đóng file rồi bấm Lưu lại."}
+    _NAMES["sig"] = None
+    return {"ok": True, "count": len(clean)}
 
 
 def intake(raw_name, fname, data, sub=""):
@@ -378,7 +447,7 @@ UPD = {"cache": None, "checked": 0}
 SKIP_DIRS  = {"node_modules", "pyembed", "dump", "data", "done", "dist", ".git",
               "__pycache__", ".edge-profile", ".vscode"}
 KEEP_FILES = {"people.xlsx"}
-ALLOW_EXT  = {".py", ".js", ".html", ".css", ".bat", ".txt", ".json", ".md"}
+ALLOW_EXT  = {".py", ".js", ".html", ".css", ".bat", ".txt", ".json", ".md", ".ico"}
 ALLOW_NAME = {"VERSION"}   # no extension, but it IS the file that says which version this is
 
 
@@ -578,6 +647,10 @@ class Handler(BaseHTTPRequestHandler):
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             names, listed = known_names()
             return self.json({"names": names, "listed": sorted(listed)})
+        if p == "/api/people":
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            try: return self.json(people_read())
+            except Exception as ex: return self.json({"error": "Không đọc được people.xlsx: %s" % ex}, 500)
         return self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
@@ -595,6 +668,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as ex:
                 log("upload: %r" % ex); return self.json({"error": str(ex)}, 500)
         d = self.body()
+        if p == "/api/people":
+            try: return self.json(people_write(d.get("rows") or []))
+            except Exception as ex:
+                log("people save: %r" % ex); return self.json({"error": str(ex)}, 500)
+        if p == "/api/mkdir":
+            return self.json(make_dirs(d.get("names") or []))
         if p == "/api/tidy":
             notes = []
             for n in d.get("names") or []:
@@ -611,7 +690,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = Job(action, step_fill(names), "Điền đơn lên cổng")
             elif action == "archive":
                 if not names: return self.json({"error": "no names"}, 400)
-                job = Job(action, step_archive(names), "Chuyển sang done")
+                job = Job(action, step_archive(names), "Hoàn tất")
             elif action == "login":
                 job = Job(action, step_login(), "Đăng nhập cổng")
             elif action == "update":
@@ -664,6 +743,37 @@ def restart():
     threading.Timer(0.5, lambda: SHUTDOWN and SHUTDOWN[0]()).start()
 
 
+def app_windows(title="Payment Tool"):
+    """Visible top-level windows with this exact title (Edge --app windows carry the page <title>)."""
+    if os.name != "nt": return set()
+    u32 = ctypes.windll.user32
+    proto = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    hits = set()
+    def cb(hwnd, _):
+        n = u32.GetWindowTextLengthW(hwnd)
+        if n and u32.IsWindowVisible(hwnd):
+            buf = ctypes.create_unicode_buffer(n + 1); u32.GetWindowTextW(hwnd, buf, n + 1)
+            if buf.value == title: hits.add(hwnd)
+        return True
+    u32.EnumWindows(proto(cb), 0)
+    return hits
+
+
+def maximize_window(before, wait=20):
+    """Edge ignores --start-maximized when it is already running, so maximize the NEW window ourselves
+    (an old window of a restarted server may still be open for a few seconds)."""
+    if os.name != "nt": return
+    u32 = ctypes.windll.user32
+    end = time.time() + wait
+    while time.time() < end:
+        new = app_windows() - before
+        if new:
+            for h in new:
+                if not u32.IsZoomed(h): u32.ShowWindow(h, 3)   # SW_MAXIMIZE
+            return
+        time.sleep(0.3)
+
+
 def open_ui():
     url = "http://%s:%d/?t=%s" % (HOST, PORT, TOKEN)
     if os.environ.get("PT_NO_OPEN"): log("PT_NO_OPEN set, window not opened: " + url); return
@@ -672,10 +782,13 @@ def open_ui():
         if os.path.exists(exe):
             try:
                 # Translate off: the page is Vietnamese and Edge would offer to translate it every time
-                subprocess.Popen([exe, "--app=" + url, "--window-size=1280,900",
+                before = app_windows()
+                subprocess.Popen([exe, "--app=" + url, "--start-maximized",
                                   "--disable-features=Translate"],
                                  creationflags=NO_WINDOW)
-                return
+                t = threading.Thread(target=maximize_window, args=(before,), daemon=True)
+                t.start()
+                return t
             except Exception: pass
     webbrowser.open(url)
 
@@ -705,7 +818,10 @@ def main():
     if already_running():
         try: TOKEN = open(TOKFILE, encoding="utf-8").read().strip()
         except Exception: TOKEN = ""
-        log("already running, opening the window"); open_ui(); return
+        log("already running, opening the window")
+        t = open_ui()
+        if t: t.join()   # this process exits right after, so wait for the window to be maximized
+        return
     TOKEN = os.urandom(16).hex()
     open(TOKFILE, "w", encoding="utf-8").write(TOKEN)
     try:

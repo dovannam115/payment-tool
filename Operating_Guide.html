@@ -10,10 +10,6 @@
     --bg:#262624; --card:#34322D; --line:#46443F; --line2:#4D4A45;
     --fg:#F5F4ED; --muted:#A19D93; --dim:#777267; --accent:#c96442;
   }
-  :root[data-theme="light"]{
-    --bg:#FAFAF7; --card:#FFFFFF; --line:#E3E0D6; --line2:#D6D2C6;
-    --fg:#2E2D2A; --muted:#6B675E; --dim:#8D8878;
-  }
   *{box-sizing:border-box}
   html,body{margin:0}
   body{
@@ -65,7 +61,7 @@
 <body>
 <div class="page">
   <h1>Payment Tool</h1>
-  <div class="sub">Nhấn đúp "Payment Tool.bat" rồi làm 1, 2, 3.</div>
+  <div class="sub">Lần đầu nhấn đúp "Install.bat", sau đó mở bằng ô tìm kiếm Windows, gõ "Payment Tool". Làm 1, 2, 3.</div>
 
   <div class="flow">
     <div class="node">
@@ -84,7 +80,7 @@
     </div>
     <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
     <div class="node">
-      <div class="n">Bước 3</div><b>Chuyển sang done</b>
+      <div class="n">Bước 3</div><b>Hoàn tất</b>
       <span>Cất hồ sơ đã nộp</span>
     </div>
   </div>
@@ -94,7 +90,8 @@
     <div class="note"><b>Kéo thả</b><span>Thư mục mỗi người, file lẻ hoặc file ZIP vào cửa sổ tool, hoặc bấm Thêm hồ sơ</span></div>
     <div class="note"><b>Thư mục</b><span>Tên thư mục là họ tên. Thả thư mục cha chứa nhiều người thì mỗi thư mục con là một người</span></div>
     <div class="note"><b>File lẻ</b><span>Gõ họ tên, hoặc thả thẳng vào dòng của người đó trong bảng</span></div>
-    <div class="note"><b>Họ tên</b><span>Gõ không dấu cũng được, tool tự sửa theo danh sách người. Tên mới thì kiểm tra đúng tên trên cổng</span></div>
+    <div class="note"><b>Tìm tên</b><span>Gõ vài chữ (không dấu cũng được), Enter để chọn. Chỉ chọn tên rồi Lưu là tạo thư mục</span></div>
+    <div class="note"><b>Danh sách người</b><span>Họ tên, ngân hàng, số tài khoản. Sửa ở mục Danh sách người, dán từ Excel được</span></div>
     <div class="note"><b>Tự sắp</b><span>PDF khác tên XML được ghép theo số hóa đơn và đổi tên theo XML. PDF kết quả kiểm tra tự vào check</span></div>
   </div>
 
@@ -108,7 +105,7 @@
     ToTrinh_Nguon.pdf     <i>tờ trình</i>
     check\                <i>tool tự tạo ở Bước 1</i>
 done\
-  2026-10\<u>&lt;Họ tên&gt;</u>\        <i>đã nộp xong trên cổng</i></div>
+  2026-10\<u>&lt;Họ tên&gt;</u>\        <i>hồ sơ đã hoàn tất</i></div>
     </div>
     <div class="box">
       <h3>Lưu ý</h3>
@@ -128,9 +125,5 @@ done\
     <div class="note"><b>Dừng</b><span>Soát lại trên cổng rồi bấm Lưu. Tool không bấm Lưu</span></div>
   </div>
 </div>
-<script>
-  var t = new URLSearchParams(location.search).get("theme");
-  if (t === "light") document.documentElement.setAttribute("data-theme", "light");
-</script>
 </body>
 </html>

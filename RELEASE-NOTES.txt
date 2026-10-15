@@ -1,5 +1,17 @@
 Payment Tool - release notes
 
+1.3.0 (2026-10-15)
+- Install.bat: run once, the tool is copied to the user's AppData and 'Payment Tool' is added
+  to the Start menu and the Desktop. Open it from Windows search; right-click it there to pin
+  it to the taskbar. Installing again keeps data, done, people.xlsx and the portal login.
+- 'Danh sach nguoi' in the app: edit people.xlsx (name, bank, account) or paste rows from Excel.
+- 'Them ho so': search box for names, with an entry to add a new name.
+- Invoice check: 5 invoices in parallel instead of up to 12 (the site slowed down at 10), and a
+  result page that does not load is tried once more.
+- Seller status left blank by the tax site now shows as not read, not as an inactive company.
+- Check warnings are in Vietnamese and say what to do next.
+- Window opens maximized, new logo, button 'Hoan tat'.
+
 1.2.0 (2026-10-15)
 - Add files without making folders by hand: drag person folders, loose XML/PDF or a ZIP
   onto the tool window, or press 'Them ho so'. A parent folder with one subfolder per

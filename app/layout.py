@@ -164,9 +164,11 @@ def read_check_log(person):
 def check_problem(row):
     """Short warning for one log row, '' if the invoice is valid and the seller is active."""
     out=[]
-    if row.get("Status")!="VALID": out.append(f"invoice {row.get('Status') or '?'}")
-    if row.get("Company")=="Inactive": out.append("seller INACTIVE"+(f" ({row['Tax status']})" if row.get("Tax status") else ""))
-    elif row.get("Company")!="Active": out.append("seller status not read (tax site busy) - run step 1 again with redo ticked")
+    st=row.get("Status") or "?"
+    if st in ("ERROR","?"): return "chưa kiểm tra được (trang kiểm tra chậm), chạy lại bước Kiểm tra"
+    if st!="VALID": out.append(f"hóa đơn {'không hợp lệ' if st=='INVALID' else st}")
+    if row.get("Company")=="Inactive": out.append("người bán ngừng hoạt động"+(f" ({row['Tax status']})" if row.get("Tax status") else ""))
+    elif row.get("Company")!="Active": out.append("chưa đọc được tình trạng MST người bán, tra tay trên tracuunnt.gdt.gov.vn")
     return ", ".join(out)
 
 def done_names(person):
