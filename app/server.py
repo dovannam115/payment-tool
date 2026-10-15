@@ -533,7 +533,9 @@ def open_ui():
                 r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"):
         if os.path.exists(exe):
             try:
-                subprocess.Popen([exe, "--app=" + url, "--window-size=1280,900"],
+                # Translate off: the page is Vietnamese and Edge would offer to translate it every time
+                subprocess.Popen([exe, "--app=" + url, "--window-size=1280,900",
+                                  "--disable-features=Translate"],
                                  creationflags=NO_WINDOW)
                 return
             except Exception: pass

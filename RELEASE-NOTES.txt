@@ -1,5 +1,8 @@
 Payment Tool - release notes
 
+1.0.6 (2026-10-15)
+- Edge no longer asks to translate the tool window on every start.
+
 1.0.5 (2026-10-15)
 - The open invoice list no longer folds back on its own: the table only redraws when
   something actually changed, and a list you opened stays open.
