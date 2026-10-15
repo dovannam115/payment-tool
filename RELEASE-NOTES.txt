@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.0.1 (2026-10-15)
+- Guide tab was blank: the page never loaded the guide into its frame.
+- Invoice detail lines: amounts are grouped by thousands and line up in a column.
+
 1.0.0 (2026-10-15)
 - New window-based interface. No more typing numbers in a black console.
 - One screen lists every person in data, with invoice / PDF / check / to trinh counts

@@ -237,7 +237,7 @@
 
   <!-- ============ guide ============ -->
   <div class="wrap hide" id="v-guide">
-    <iframe id="gframe" src=""></iframe>
+    <iframe id="gframe" title="Hướng dẫn"></iframe>
   </div>
 
   <!-- ============ update ============ -->
@@ -306,7 +306,8 @@ function go(v){
     $("nav-"+(k === "upd" ? "upd" : k)).classList.toggle("on", k === v);
   }
   $("title").textContent = TITLES[v];
-  if(v === "guide" && !$("gframe").src) $("gframe").src = "/guide";
+  // an iframe with an empty src reports the page URL, so track it with a flag instead
+  if(v === "guide" && !$("gframe").dataset.on){ $("gframe").dataset.on = "1"; $("gframe").src = "/guide"; }
   if(v === "upd") checkUpd(false);
 }
 
@@ -353,8 +354,10 @@ function drawPeople(){
     d.innerHTML = '<td colspan="8">' + (p.detail.map(x =>
         '<div class="ln' + (x.problem ? ' bad' : '') + '"><b>' + esc(x.stem) + '</b>' +
         '<span>số ' + esc(x.so) + '</span><span>' + esc(x.ngay) + '</span>' +
-        '<span>' + esc(x.tong) + '</span><span>' + esc(x.seller) + '</span>' +
-        '<span>' + (x.pdf ? '' : 'thiếu PDF ') + (x.check ? '' : 'chưa có check ') + esc(x.problem) + '</span></div>'
+        '<span class="r">' + money(x.tong) + '</span>' +
+        '<span class="s">' + esc(x.seller) +
+          (x.pdf ? '' : ' | thiếu PDF') + (x.check ? '' : ' | chưa kiểm tra') +
+          (x.problem ? ' | ' + esc(x.problem) : '') + '</span></div>'
       ).join("") || '<div class="ln">Không có hóa đơn XML, chỉ có tờ trình.</div>') + '</td>';
     tb.appendChild(d);
   });
