@@ -1,5 +1,10 @@
 Payment Tool - release notes
 
+1.0.4 (2026-10-15)
+- Invoice detail: click the invoice name to open its PDF, or 'kết quả' for the check result.
+- Invoice detail scrolls sideways, so long seller names are no longer cut off.
+- A tool window whose server has stopped now closes itself instead of staying open.
+
 1.0.3 (2026-10-15)
 - Update check reads the new version straight away instead of waiting a few minutes
   for the GitHub file cache to catch up.

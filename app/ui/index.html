@@ -89,7 +89,9 @@
   input[type=checkbox]{accent-color:var(--ember); width:14px; height:14px; cursor:pointer}
 
   /* table */
-  table{width:100%; border-collapse:collapse}
+  .tablewrap{overflow-x:auto; margin:0 -2px; padding:0 2px}
+  .tablewrap::-webkit-scrollbar{height:9px}
+  table{width:100%; border-collapse:collapse; min-width:620px}
   th{
     text-align:left; font-size:11px; font-weight:600; color:var(--dim); text-transform:uppercase;
     letter-spacing:.07em; padding:0 10px 8px; border-bottom:1px solid var(--line); white-space:nowrap;
@@ -106,9 +108,15 @@
   .link{background:none;border:0;color:var(--muted);padding:2px 4px;border-radius:6px;font-size:12.5px}
   .link:hover{color:var(--fg); background:var(--hover)}
   .detail td{background:var(--elev); color:var(--muted); font-size:12.5px; padding:4px 10px 10px}
-  .detail .ln{display:grid; grid-template-columns:250px 78px 92px 110px 1fr; gap:12px;
-              padding:2px 0; white-space:nowrap; overflow:hidden}
-  .detail .ln b{font-weight:600; color:var(--fg); overflow:hidden; text-overflow:ellipsis}
+  .lnwrap{overflow-x:auto; padding-bottom:4px}
+  .lnwrap::-webkit-scrollbar{height:9px}
+  .lns{min-width:860px}
+  .detail .ln{display:grid; grid-template-columns:260px 64px 80px 92px 110px minmax(300px,1fr);
+              gap:12px; align-items:center; padding:1px 0; white-space:nowrap}
+  .detail .ln b{font-weight:600; color:var(--fg)}
+  .detail .ln b.open{cursor:pointer; text-decoration:underline; text-decoration-color:var(--line2);
+                     text-underline-offset:3px}
+  .detail .ln b.open:hover{color:var(--ember-lit); text-decoration-color:var(--ember-lit)}
   .detail .ln .r{text-align:right; font-variant-numeric:tabular-nums}
   .detail .ln .s{overflow:hidden; text-overflow:ellipsis}
   .detail .bad{color:var(--bad)}
@@ -213,6 +221,7 @@
         <button class="btn sm gho" onclick="pickAll(false)">Bỏ chọn</button>
         <button class="btn sm gho" onclick="load()">Tải lại</button>
       </div>
+      <div class="tablewrap">
       <table>
         <thead><tr>
           <th style="width:30px"></th><th>Họ tên</th><th class="n">Hóa đơn</th><th class="n">PDF</th>
@@ -220,6 +229,7 @@
         </tr></thead>
         <tbody id="rows"></tbody>
       </table>
+      </div>
       <div class="empty hide" id="noppl">Chưa có ai trong thư mục data. Mở "Thư mục data" rồi tạo 1 thư mục cho mỗi người, thả XML + PDF hóa đơn + PDF tờ trình vào đó.</div>
     </div>
 
@@ -282,11 +292,28 @@ const T = new URLSearchParams(location.search).get("t") || "";
 const $ = (id) => document.getElementById(id);
 let ST = {people:[]}, since = 0, polling = null, busy = false;
 
+let dead = 0;
 async function api(path, body){
   const o = {headers:{"X-Token":T,"Content-Type":"application/json"}};
   if(body !== undefined){ o.method = "POST"; o.body = JSON.stringify(body); }
-  const r = await fetch(path, o);
+  let r;
+  try { r = await fetch(path, o); }
+  catch(e){ if(++dead >= 3) gone("Tool đã đóng.");  return {error:"offline"}; }
+  // 403 = another window took over with a new key, so this one is left over from an older start
+  if(r.status === 403){ gone("Cửa sổ này đã cũ, tool đang chạy ở cửa sổ khác."); return {error:"token"}; }
+  dead = 0;
   try { return await r.json(); } catch(e){ return {error:"bad response"}; }
+}
+
+/* The window closes itself when its server is gone, so old windows do not pile up. */
+let closing = false;
+function gone(msg){
+  if(closing) return;
+  closing = true;
+  document.body.innerHTML = '<div style="margin:auto;text-align:center;color:#A19D93;font:14px \'Segoe UI\'">' +
+    msg + '<br>Mở lại bằng Payment Tool.bat.</div>';
+  const shut = () => { try{ window.close(); }catch(e){} };
+  shut(); setTimeout(shut, 600); setTimeout(shut, 2000);
 }
 
 /* ---------- theme ---------- */
@@ -327,11 +354,18 @@ function money(v){
   const n = Number(String(v || "").replace(/[^\d.-]/g, ""));
   return isFinite(n) && n ? Math.round(n).toLocaleString("vi-VN") : esc(v);
 }
+function att(s){ return esc(s).replace(/'/g, "&#39;"); }
+async function openFile(path){
+  const r = await api("/api/open", {what:"file", path});
+  if(r.error) say(r.error + ": " + path);
+}
 function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function drawPeople(){
   const keep = new Set(picked());
   const tb = $("rows"); tb.innerHTML = "";
+  // anything carrying data-f is a file: one click opens it in the default app
+  tb.onclick = (e) => { const el = e.target.closest("[data-f]"); if(el) openFile(el.dataset.f); };
   const ppl = ST.people || [];
   $("noppl").classList.toggle("hide", ppl.length > 0);
   $("cnt").textContent = ppl.length ? ppl.length + " người, " + ppl.reduce((a,p)=>a+p.invoices,0) + " hóa đơn" : "";
@@ -356,14 +390,21 @@ function drawPeople(){
     tb.appendChild(tr);
     const d = document.createElement("tr");
     d.className = "detail hide"; d.id = "d" + i;
-    d.innerHTML = '<td colspan="8">' + (p.detail.map(x =>
-        '<div class="ln' + (x.problem ? ' bad' : '') + '"><b>' + esc(x.stem) + '</b>' +
+    d.innerHTML = '<td colspan="8"><div class="lnwrap"><div class="lns">' + (p.detail.map(x =>
+        '<div class="ln' + (x.problem ? ' bad' : '') + '">' +
+        (x.pdf_file
+          ? '<b class="open" title="Mở file PDF hóa đơn" data-f="' + att(x.pdf_file) + '">' + esc(x.stem) + '</b>'
+          : '<b>' + esc(x.stem) + '</b>') +
+        (x.check_file
+          ? '<button class="link" title="Mở file kết quả kiểm tra" data-f="' + att(x.check_file) + '">kết quả</button>'
+          : '<span></span>') +
         '<span>số ' + esc(x.so) + '</span><span>' + esc(x.ngay) + '</span>' +
         '<span class="r">' + money(x.tong) + '</span>' +
         '<span class="s">' + esc(x.seller) +
           (x.pdf ? '' : ' | thiếu PDF') + (x.check ? '' : ' | chưa kiểm tra') +
-          (x.problem ? ' | ' + esc(x.problem) : '') + '</span></div>'
-      ).join("") || '<div class="ln">Không có hóa đơn XML, chỉ có tờ trình.</div>') + '</td>';
+          (x.problem ? ' | ' + esc(x.problem) : '') + '</span>' +
+        '</div>'
+      ).join("") || '<div class="ln">Không có hóa đơn XML, chỉ có tờ trình.</div>') + '</div></div></td>';
     tb.appendChild(d);
   });
 }
@@ -486,14 +527,12 @@ function showUpd(u){
 }
 async function restart(){
   await api("/api/restart", {});
-  document.body.innerHTML = '<div style="margin:auto;text-align:center;color:#A19D93;font:14px \'Segoe UI\'">' +
-    'Đang khởi động lại, cửa sổ mới sẽ tự mở sau vài giây.<br>Đóng cửa sổ này.</div>';
+  gone("Đang khởi động lại, cửa sổ mới tự mở sau vài giây.");
 }
 async function quit(){
   if(busy && !confirm("Đang chạy dở. Thoát luôn?")) return;
   await api("/api/quit", {});
-  document.body.innerHTML = '<div style="margin:auto;text-align:center;color:#A19D93;font:14px \'Segoe UI\'">' +
-    'Đã thoát. Đóng cửa sổ này, mở lại bằng Payment Tool.bat.</div>';
+  gone("Đã thoát.");
 }
 
 setInterval(() => { api("/api/ping", {}); }, 3000);

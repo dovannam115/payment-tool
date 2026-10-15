@@ -216,6 +216,17 @@ def person_rows():
             if os.path.basename(iv["xml"]) in logrows: return True
             s = iv["stem"].lower()
             return any(f.startswith(s) and f.endswith(".pdf") for f in have)
+
+        def check_pdf(iv):
+            """The check result of this invoice: same name first, else one that starts with it."""
+            if iv["check"]: return iv["check"]
+            s = iv["stem"].lower()
+            hit = [f for f in have if f.startswith(s) and f.endswith(".pdf")]
+            return os.path.join(cdir, hit[0]) if hit else ""
+
+        def rel(p):
+            return os.path.relpath(p, DATA).replace("\\", "/") if p else ""
+
         detail, problems, pending = [], [], 0
         for iv in invs:
             r = logrows.get(os.path.basename(iv["xml"]))
@@ -225,7 +236,8 @@ def person_rows():
             if prob: problems.append("%s: %s" % (iv["stem"], prob))
             detail.append({"stem": iv["stem"], "so": iv["sh"], "kh": iv["kh"], "ngay": iv["ngay"],
                            "tong": iv["tong"], "seller": iv["seller"],
-                           "pdf": bool(iv["pdf"]), "check": done, "problem": prob})
+                           "pdf": bool(iv["pdf"]), "check": done, "problem": prob,
+                           "pdf_file": rel(iv["pdf"]), "check_file": rel(check_pdf(iv))})
         rows.append({"name": name, "invoices": len(invs),
                      "pdf": sum(1 for i in invs if i["pdf"]), "checks": checks,
                      "totrinh": len(totrinh), "checked": bool(logrows),
@@ -481,6 +493,11 @@ class Handler(BaseHTTPRequestHandler):
             what = d.get("what"); target = {"input": INPUT, "checklog": CHECKLOG, "data": DATA,
                                             "done": DONE, "guide": GUIDE}.get(what)
             if what == "person": target = os.path.join(DATA, d.get("name") or "")
+            if what == "file":
+                # a file the page listed, always inside data\ - resolve it and check it stayed there
+                want = os.path.realpath(os.path.join(DATA, d.get("path") or ""))
+                root = os.path.realpath(DATA)
+                target = want if (want == root or want.startswith(root + os.sep)) else None
             if not target or not os.path.exists(target):
                 return self.json({"error": "Chưa có file này"}, 404)
             try: os.startfile(target)
