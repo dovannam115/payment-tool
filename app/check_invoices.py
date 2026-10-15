@@ -8,6 +8,9 @@ try: sys.stdout.reconfigure(encoding="utf-8")
 except Exception: pass
 from layout import APP, DATA, LOG_COLS, people_dirs, read_check_log, check_problem
 
+# the UI runs this with no console of its own; without this flag node would open one
+NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+
 # Invoice Check is bundled: app\invoice_check\check-print.js, using app\node.exe + app\node_modules
 IC      = os.path.join(APP, "invoice_check")
 IC_NODE = os.path.join(APP, "node.exe")
@@ -53,7 +56,11 @@ def check_all(people, redo=False):
         node = IC_NODE if os.path.exists(IC_NODE) else "node"
         jobs = str(min(total, 12))   # check phase: up to 12 in parallel (export is capped inside Invoice Check)
         print(f"  Checking {total} invoice(s) of {sum(1 for x in todo.values() if x)} person(s) in one run ({jobs} parallel)...")
-        subprocess.call([node, IC_JS, tmp, "--pdf", "--jobs", jobs], cwd=IC)
+        sys.stdout.flush()
+        # stdout/stderr passed on purpose: without it the child writes to its own console
+        # instead of our pipe, and the UI would show none of the Invoice Check output
+        subprocess.call([node, IC_JS, tmp, "--pdf", "--jobs", jobs], cwd=IC,
+                        creationflags=NO_WINDOW, stdout=sys.stdout, stderr=subprocess.STDOUT)
         res = os.path.join(tmp, "CheckResults"); n = 0
         for f in os.listdir(res) if os.path.isdir(res) else []:
             k, _, name = f.partition("__")

@@ -1,5 +1,10 @@
 Payment Tool - release notes
 
+1.0.2 (2026-10-15)
+- Checking invoices no longer flashes a black console window.
+- Invoice Check output now shows inside the tool, with a live progress bar row
+  while it checks and exports.
+
 1.0.1 (2026-10-15)
 - Guide tab was blank: the page never loaded the guide into its frame.
 - Invoice detail lines: amounts are grouped by thousands and line up in a column.

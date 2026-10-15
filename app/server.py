@@ -1,7 +1,7 @@
 # Local web UI for Payment Tool. Binds 127.0.0.1 only, serves app\ui and runs each step as a job.
 # Started by "Payment Tool.bat" with pyembed\pythonw.exe (no console window).
 #   python.exe app\server.py --diag   -> same server with the log in a console (for troubleshooting)
-import os, sys, json, time, glob, shutil, socket, zipfile, ctypes, tempfile, threading, subprocess, webbrowser
+import os, re, sys, json, time, glob, codecs, shutil, socket, zipfile, ctypes, tempfile, threading, subprocess, webbrowser
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -27,6 +27,7 @@ PY   = [sys.executable] if sys.executable else ["py", "-3.12"]
 NODE = os.path.join(APP, "node.exe")
 if not os.path.exists(NODE): NODE = "node"
 NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")   # colour codes in child output
 
 
 def log(msg):
@@ -65,6 +66,7 @@ class Job:
     def __init__(self, action, steps, label):
         self.action, self.steps, self.label = action, steps, label
         self.lines, self.ask, self.rc = [], None, None
+        self.progress = ""              # last \r line (a progress bar), shown on its own row
         self.state = "running"          # running | waiting | login | done
         self.started = time.time()
         self.proc = None
@@ -72,7 +74,8 @@ class Job:
         self.lock = threading.Lock()
 
     def put(self, text):
-        with self.lock: self.lines.append(text)
+        with self.lock:
+            self.lines.append(text); self.progress = ""
 
     def answer(self, text=""):
         p = self.proc
@@ -80,9 +83,25 @@ class Job:
         if self.state in ("waiting", "login"): self.state = "running"
         if p and p.poll() is None:
             try:
-                p.stdin.write((text or "") + "\n"); p.stdin.flush(); return True
+                p.stdin.write(((text or "") + "\n").encode("utf-8")); p.stdin.flush(); return True
             except Exception: return False
         return False
+
+    def feed(self, text, ended_with_cr):
+        """One chunk of child output. A chunk that ended with \\r is a progress bar redrawing
+        itself on the same line, so it replaces the progress row instead of piling up."""
+        text = ANSI.sub("", text).rstrip()      # Invoice Check colours its bar, the page shows plain text
+        if not text: return
+        if ended_with_cr:
+            with self.lock: self.progress = text
+            return
+        if text.startswith("[[ASK]]"):
+            self.ask = text[7:].strip(); self.state = "waiting"
+        elif text.startswith("[[LOGIN]]"):
+            self.state = "login"; self.put(text[9:].strip())
+        else:
+            if self.state == "login": self.state = "running"   # user is through, work went on
+            self.put(text)
 
     def kill_tree(self, p):
         """/T takes the children too, else the Edge window playwright opened stays behind."""
@@ -104,21 +123,27 @@ class Job:
                 e = dict(os.environ); e.update(env or {}); e["PYTHONIOENCODING"] = "utf-8"
                 script = next((a for a in reversed(cmd) if a.lower().endswith((".py", ".js"))), cmd[0])
                 self.put("> " + os.path.basename(script))
+                # raw bytes, not text mode: text mode turns every \r into \n, and then a progress
+                # bar redrawing itself would look like hundreds of separate lines.
                 p = subprocess.Popen(cmd, cwd=APP, env=e, stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                     text=True, encoding="utf-8", errors="replace",
-                                     bufsize=1, creationflags=NO_WINDOW)
+                                     bufsize=0, creationflags=NO_WINDOW)
                 self.proc = p
-                for raw in iter(p.stdout.readline, ""):
-                    line = raw.rstrip("\r\n")
-                    if line.startswith("[[ASK]]"):
-                        self.ask = line[7:].strip(); self.state = "waiting"
-                    elif line.startswith("[[LOGIN]]"):
-                        self.state = "login"; self.put(line[9:].strip())
-                    else:
-                        if line.strip():
-                            if self.state == "login": self.state = "running"   # user is through, work went on
-                            self.put(line)
+                dec = codecs.getincrementaldecoder("utf-8")(errors="replace")
+                buf, cr = "", False
+                while True:
+                    chunk = p.stdout.read(4096)      # unbuffered pipe: returns as soon as there is data
+                    if not chunk: break
+                    for ch in dec.decode(chunk):
+                        if ch == "\r":
+                            cr = True                # wait for the next character to know what it meant
+                        elif ch == "\n":
+                            self.feed(buf, False); buf = ""; cr = False      # \r\n and \n are both a line
+                        else:
+                            if cr:                   # \r then more text = a progress bar redrawing itself
+                                self.feed(buf, True); buf = ""; cr = False
+                            buf += ch
+                if buf: self.feed(buf, cr)
                 try:
                     rc = p.wait(timeout=25)          # stdout is closed, so this is only a safety net
                 except subprocess.TimeoutExpired:
@@ -136,8 +161,8 @@ class Job:
     def view(self, since=0):
         with self.lock: lines = self.lines[since:]
         return {"action": self.action, "label": self.label, "state": self.state,
-                "ask": self.ask, "rc": self.rc, "total": len(self.lines) + 0,
-                "since": since, "lines": lines}
+                "ask": self.ask, "rc": self.rc, "total": len(self.lines),
+                "progress": self.progress, "since": since, "lines": lines}
 
 
 class Runner:

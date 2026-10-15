@@ -124,6 +124,10 @@
     font:12.3px/1.55 ui-monospace,"Cascadia Mono",Consolas,monospace; white-space:pre-wrap;
     user-select:text;
   }
+  .prog{
+    display:flex; align-items:center; gap:10px; color:var(--muted);
+    font:12.3px/1.5 ui-monospace,"Cascadia Mono",Consolas,monospace; padding:0 2px;
+  }
   .ask{
     display:flex; align-items:center; gap:12px; background:rgba(201,100,66,.12);
     border:1px solid rgba(201,100,66,.4); border-radius:11px; padding:11px 13px;
@@ -231,6 +235,7 @@
         <span id="askText"></span>
         <button class="btn pri sm" onclick="answer()">Tiếp tục</button>
       </div>
+      <div class="prog hide" id="progRow"><span class="spin"></span><span id="progText"></span></div>
       <pre id="out">Chọn người ở bảng trên rồi bấm một bước. Không chọn ai thì Bước 1 và Bước 2 làm cho tất cả.</pre>
     </div>
   </div>
@@ -429,6 +434,9 @@ async function poll(){
     o.textContent += (o.textContent ? "\n" : "") + j.lines.join("\n");
     if(atEnd) o.scrollTop = o.scrollHeight;
   }
+  const pg = j.progress || "";
+  $("progRow").classList.toggle("hide", !pg);
+  if(pg) $("progText").textContent = pg;
   $("runLabel").textContent = (LABELS[j.action] || j.label) +
       (j.state === "login" ? " - đang chờ đăng nhập ở cửa sổ Edge" : "");
   const ask = j.state === "waiting" && j.ask;
@@ -438,6 +446,7 @@ async function poll(){
     clearInterval(polling); polling = null;
     setBusy(false);
     $("askBar").classList.add("hide");
+    $("progRow").classList.add("hide");
     load();
     if(j.action === "update" && (j.rc === null || j.rc === 0)) $("b-restart").classList.remove("hide");
   }

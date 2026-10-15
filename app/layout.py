@@ -70,7 +70,7 @@ def check_problem(row):
     out=[]
     if row.get("Status")!="VALID": out.append(f"invoice {row.get('Status') or '?'}")
     if row.get("Company")=="Inactive": out.append("seller INACTIVE"+(f" ({row['Tax status']})" if row.get("Tax status") else ""))
-    elif row.get("Company")!="Active": out.append("seller status not read (tax site busy) - run step 2 again with redo")
+    elif row.get("Company")!="Active": out.append("seller status not read (tax site busy) - run step 1 again with redo ticked")
     return ", ".join(out)
 
 def done_names(person):
