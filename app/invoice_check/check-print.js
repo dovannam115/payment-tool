@@ -184,9 +184,7 @@ async function openResultPage(ctx, id) {
     await rp.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
   }
   await rp.waitForTimeout(300);
-  await rp.evaluate(() => document.querySelectorAll(
-    '[sbz-plugin-type="chatbox"],.widget-layout,iframe[src*="tawk"],[id*="tawk"],.tawk-min-container'
-  ).forEach(e => e.remove()));
+  await hideWidgets(rp);
   // force background colors to print (green "Valid" badge, header fills) even on a real printer
   await rp.addStyleTag({ content: '@media print{html,body,*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}' }).catch(() => {});
   const { status, taxStatus } = await rp.evaluate(() => {
@@ -209,7 +207,17 @@ function setResult(r, res) {
   r.company = companyState(res.taxStatus);
 }
 
+// The support chat (Subiz "M-invoice Support", bottom right) draws itself again after being
+// removed, so hide it with a style rule as well and run this once more right before printing.
+const WIDGETS = '[sbz-plugin-type],.widget-layout,.widget-container,.chat-button--white-bg,' +
+  'iframe[src*="subiz"],iframe[src*="tawk"],[id*="tawk"],.tawk-min-container';
+async function hideWidgets(rp) {
+  await rp.addStyleTag({ content: WIDGETS + '{display:none !important;visibility:hidden !important}' }).catch(() => {});
+  await rp.evaluate((sel) => document.querySelectorAll(sel).forEach(e => e.remove()), WIDGETS).catch(() => {});
+}
+
 async function savePdf(ctx, rp, outFile) {
+  await hideWidgets(rp);          // last chance: the widget may have come back while we waited
   const client = await ctx.newCDPSession(rp);
   // ALWAYS one A4 page: shrink the scale until the PDF has a single page
   // (0.05 steps down to 0.5, then 0.1 steps down to 0.1 = Chrome's minimum)

@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.0.8 (2026-10-15)
+- Check result PDFs no longer carry the 'M-invoice Support' chat bubble in the corner.
+  The widget was removed once but drew itself again before the page was printed.
+
 1.0.7 (2026-10-15)
 - The translate prompt is now turned off by the page itself. The Edge flag in 1.0.6
   did nothing when Edge was already running.
