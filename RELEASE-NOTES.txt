@@ -1,5 +1,10 @@
 Payment Tool - release notes
 
+1.1.1 (2026-10-15)
+- Wording is written for whoever uses the tool, not for one person: no 'anh', and the
+  folder example shows <Ho ten> instead of a real name.
+- Clearer labels: 'Chuyen sang done' on the button, 'Cat ho so da nop', 'Het phien dang nhap'.
+
 1.1.0 (2026-10-15)
 - Narrow window no longer breaks labels into one word per line. Buttons, names and
   headings stay on one line, and the blocks reflow instead.

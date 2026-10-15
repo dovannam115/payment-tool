@@ -210,8 +210,8 @@
       </div>
       <div class="card step">
         <div><div class="no">Bước 3</div><h2>Chuyển sang done</h2>
-          <p>Người đã Lưu trên cổng thì cất sang done.</p></div>
-        <div class="act"><button class="btn" id="b-arch" onclick="run('archive')">Đã lưu xong</button></div>
+          <p>Người đã nộp xong thì cất hồ sơ sang done.</p></div>
+        <div class="act"><button class="btn" id="b-arch" onclick="run('archive')">Chuyển sang done</button></div>
       </div>
     </div>
 
@@ -453,7 +453,7 @@ async function run(action, extra){
   if(busy) return;
   const names = picked();
   if(action === "archive" && !names.length){
-    say("Chọn người đã lưu trên cổng ở bảng trên trước, rồi bấm lại.");
+    say("Chọn người đã nộp xong trên cổng ở bảng trên, rồi bấm lại.");
     return;
   }
   if(action === "fill" && !names.length && (ST.people || []).length > 1){
