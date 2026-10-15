@@ -60,15 +60,16 @@
   /* main */
   main{flex:1; min-width:0; display:flex; flex-direction:column}
   header{
-    display:flex; align-items:center; gap:10px; padding:16px 22px 12px;
+    display:flex; align-items:center; gap:10px 8px; flex-wrap:wrap; padding:16px 22px 12px;
     border-bottom:1px solid var(--line);
   }
-  header h1{font-size:17px; margin:0; font-weight:650}
+  header h1{font-size:17px; margin:0; font-weight:650; white-space:nowrap}
   header .sp{flex:1}
   .wrap{flex:1; overflow:auto; padding:18px 22px 24px; display:flex; flex-direction:column; gap:14px}
 
   /* buttons */
-  button{font:inherit; cursor:pointer; transition:background .18s,border-color .18s,color .18s,opacity .18s}
+  button{font:inherit; cursor:pointer; white-space:nowrap;
+          transition:background .18s,border-color .18s,color .18s,opacity .18s}
   button:active:not(:disabled){transform:scale(.985)}
   .btn{background:var(--card); color:var(--fg); border:1px solid var(--line); padding:8px 13px; border-radius:9px}
   .btn:hover:not(:disabled){background:var(--hover); border-color:var(--line2)}
@@ -80,13 +81,14 @@
 
   /* cards */
   .card{background:var(--card); border:1px solid var(--line); border-radius:13px; padding:15px 16px}
-  .card h2{margin:0 0 3px; font-size:14px; font-weight:650}
+  .card h2{margin:0 0 3px; font-size:14px; font-weight:650; white-space:nowrap}
   .card p{margin:0; color:var(--muted); font-size:12.5px}
-  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+  .steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(262px,1fr)); gap:12px}
   .step{display:flex; flex-direction:column; gap:11px}
   .step .act{margin-top:auto; display:flex; gap:7px; align-items:center; flex-wrap:wrap}
-  .no{font-size:11px; color:var(--dim); letter-spacing:.12em; text-transform:uppercase}
-  label.ck{display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12.5px; cursor:pointer}
+  .no{font-size:11px; color:var(--dim); letter-spacing:.12em; text-transform:uppercase; white-space:nowrap}
+  label.ck{display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12.5px;
+           cursor:pointer; white-space:nowrap}
   input[type=checkbox]{accent-color:var(--ember); width:14px; height:14px; cursor:pointer}
 
   /* table */
@@ -101,7 +103,7 @@
   tr:last-child td{border-bottom:0}
   tbody tr:hover{background:var(--hover)}
   td.n{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); width:64px}
-  td.who{font-weight:600}
+  td.who{font-weight:600; white-space:nowrap}
   .pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; white-space:nowrap}
   .pill.ok{background:rgba(52,211,153,.14); color:var(--good)}
   .pill.wait{background:rgba(245,158,11,.14); color:var(--warn)}
@@ -214,7 +216,7 @@
     </div>
 
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin-bottom:10px">
         <h2 style="margin:0">Người trong đợt này</h2>
         <span class="no" id="cnt"></span>
         <span class="no" id="hint">không chọn ai là làm tất cả</span>

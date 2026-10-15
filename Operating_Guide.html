@@ -28,24 +28,29 @@
      font-weight:600; margin:26px 0 12px}
 
   /* flow */
-  .flow{display:grid; grid-template-columns:1fr 18px 1fr 18px 1fr 18px 1fr; align-items:stretch; gap:0}
+  .flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:6px}
+  .node{flex:1 1 190px; min-width:190px}
   .node{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 14px}
   .node .n{font-size:11px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase}
   .node b{display:block; font-size:14px; font-weight:650; margin:3px 0 4px}
   .node span{display:block; color:var(--muted); font-size:12.5px}
-  .arrow{display:flex; align-items:center; justify-content:center; color:var(--line2)}
+  .arrow{flex:0 0 18px; display:flex; align-items:center; justify-content:center; color:var(--line2)}
   .arrow svg{width:18px; height:18px}
 
   /* folders */
-  .cols{display:grid; grid-template-columns:1.25fr 1fr; gap:14px}
+  .cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:14px}
   .box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
-  .tree{font:12.6px/1.95 ui-monospace,"Cascadia Mono",Consolas,monospace; white-space:pre}
+  .tree{font:12.6px/1.95 ui-monospace,"Cascadia Mono",Consolas,monospace; white-space:pre;
+        overflow-x:auto}
   .tree i{font-style:normal; color:var(--dim)}
   .tree u{text-decoration:none; color:var(--accent)}
-  .note{display:flex; gap:10px; padding:7px 0; font-size:13px; align-items:baseline}
-  .note b{flex:0 0 118px; font-weight:600}
-  .note span{color:var(--muted)}
+  .note{display:flex; flex-wrap:wrap; gap:4px 10px; padding:7px 0; font-size:13px; align-items:baseline}
+  .note b{flex:0 0 auto; min-width:104px; font-weight:600}
+  .note span{flex:1 1 220px; color:var(--muted)}
   .box h3{margin:0 0 8px; font-size:13px; font-weight:650}
+
+  /* once the row wraps, a trailing arrow points at nothing: the step numbers carry the order */
+  @media (max-width:860px){ .arrow{display:none} }
 
   @media print{
     @page{size:A4 landscape; margin:10mm}
