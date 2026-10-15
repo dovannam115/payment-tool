@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.0.5 (2026-10-15)
+- The open invoice list no longer folds back on its own: the table only redraws when
+  something actually changed, and a list you opened stays open.
+
 1.0.4 (2026-10-15)
 - Invoice detail: click the invoice name to open its PDF, or 'kết quả' for the check result.
 - Invoice detail scrolls sideways, so long seller names are no longer cut off.

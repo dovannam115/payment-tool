@@ -364,8 +364,13 @@ function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&"
 function drawPeople(){
   const keep = new Set(picked());
   const tb = $("rows"); tb.innerHTML = "";
-  // anything carrying data-f is a file: one click opens it in the default app
-  tb.onclick = (e) => { const el = e.target.closest("[data-f]"); if(el) openFile(el.dataset.f); };
+  // one handler for the whole table: data-f opens a file, data-t folds the invoice list,
+  // data-folder opens that person's folder
+  tb.onclick = (e) => {
+    const f = e.target.closest("[data-f]");      if(f) return openFile(f.dataset.f);
+    const t = e.target.closest("[data-t]");      if(t) return toggle(+t.dataset.t, t.dataset.name);
+    const d = e.target.closest("[data-folder]"); if(d) return open_("person", d.dataset.folder);
+  };
   const ppl = ST.people || [];
   $("noppl").classList.toggle("hide", ppl.length > 0);
   $("cnt").textContent = ppl.length ? ppl.length + " người, " + ppl.reduce((a,p)=>a+p.invoices,0) + " hóa đơn" : "";
@@ -384,12 +389,12 @@ function drawPeople(){
       '<td class="n">' + p.totrinh + '</td>' +
       '<td>' + pill + '</td>' +
       '<td style="text-align:right">' +
-        '<button class="link" onclick="toggle(' + i + ')">Chi tiết</button>' +
-        '<button class="link" onclick="open_(\'person\',\'' + esc(p.name).replace(/'/g, "\\'") + '\')">Mở thư mục</button>' +
+        '<button class="link" data-t="' + i + '" data-name="' + att(p.name) + '">Chi tiết</button>' +
+        '<button class="link" data-folder="' + att(p.name) + '">Mở thư mục</button>' +
       '</td>';
     tb.appendChild(tr);
     const d = document.createElement("tr");
-    d.className = "detail hide"; d.id = "d" + i;
+    d.className = "detail" + (shown.has(p.name) ? "" : " hide"); d.id = "d" + i;
     d.innerHTML = '<td colspan="8"><div class="lnwrap"><div class="lns">' + (p.detail.map(x =>
         '<div class="ln' + (x.problem ? ' bad' : '') + '">' +
         (x.pdf_file
@@ -408,15 +413,22 @@ function drawPeople(){
     tb.appendChild(d);
   });
 }
-function toggle(i){ $("d" + i).classList.toggle("hide"); }
+// which people have their invoice list open; kept so a refresh does not fold it back
+const shown = new Set();
+function toggle(i, name){
+  const hid = $("d" + i).classList.toggle("hide");
+  if(hid) shown.delete(name); else shown.add(name);
+}
 
+let lastPeople = "";
 async function load(){
   const s = await api("/api/state");
   if(s.error) return;
   ST = s;
   $("ver").textContent = "v" + s.version;
   $("curVer").textContent = "v" + s.version;
-  drawPeople();
+  const now = JSON.stringify(s.people);
+  if(now !== lastPeople){ lastPeople = now; drawPeople(); }
   if(s.update && s.update.available) $("updDot").classList.add("show");
   if(s.busy && !polling) startPoll(s.job ? s.job.label : "Đang chạy");
   setBusy(s.busy);
