@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.0.3 (2026-10-15)
+- Update check reads the new version straight away instead of waiting a few minutes
+  for the GitHub file cache to catch up.
+
 1.0.2 (2026-10-15)
 - Checking invoices no longer flashes a black console window.
 - Invoice Check output now shows inside the tool, with a live progress bar row

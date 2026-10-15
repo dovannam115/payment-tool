@@ -271,15 +271,32 @@ def cmp_ver(a, b):
     return 0
 
 
+def read_remote(c, name):
+    """One file from the repo. The API answers with what was just pushed; raw.githubusercontent
+    sits behind a CDN that keeps serving the old file for a few minutes, so it is only the fallback
+    (the API allows 60 calls an hour per address)."""
+    repo, branch, token = c["repo"], c["branch"] or "main", c["token"]
+    try:
+        api = "https://api.github.com/repos/%s/contents/%s?ref=%s" % (repo, name, branch)
+        j = json.loads(http_get(api, token).decode("utf-8", "replace"))
+        import base64
+        return base64.b64decode(j.get("content", "")).decode("utf-8", "replace")
+    except urllib.error.HTTPError as ex:
+        if ex.code == 404: raise                       # repo or file really is not there
+    except Exception:
+        pass
+    raw = "https://raw.githubusercontent.com/%s/%s/%s" % (repo, branch, name)
+    return http_get(raw, token).decode("utf-8", "replace")
+
+
 def update_check():
     c = cfg(); cur = version()
     if not c["repo"] or "/" not in c["repo"]:
         out = {"configured": False, "current": cur}
     else:
-        base = "https://raw.githubusercontent.com/%s/%s/" % (c["repo"], c["branch"] or "main")
         try:
-            latest = http_get(base + "VERSION", c["token"]).decode("utf-8", "replace").strip()
-            try: notes = http_get(base + "RELEASE-NOTES.txt", c["token"]).decode("utf-8", "replace")
+            latest = read_remote(c, "VERSION").strip()
+            try: notes = read_remote(c, "RELEASE-NOTES.txt")
             except Exception: notes = ""
             out = {"configured": True, "current": cur, "latest": latest,
                    "available": cmp_ver(latest, cur) > 0, "notes": notes[:4000], "repo": c["repo"]}
