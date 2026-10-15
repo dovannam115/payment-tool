@@ -1,5 +1,18 @@
 Payment Tool - release notes
 
+1.2.0 (2026-10-15)
+- Add files without making folders by hand: drag person folders, loose XML/PDF or a ZIP
+  onto the tool window, or press 'Them ho so'. A parent folder with one subfolder per
+  person is split by itself. Dropping onto a person's row adds the files to that person.
+- Names typed without accents snap to the spelling in people.xlsx.
+- An invoice PDF named differently from its XML is matched by the invoice number inside
+  the PDF and renamed after the XML. Check result PDFs dropped with the invoices go to check.
+- File warnings per person: XML without PDF, an invoice PDF that fits no XML, a check
+  result in the wrong place, missing or extra to trinh. A stray invoice PDF is no longer
+  attached as the to trinh. 'Dien don' lists the warnings and asks before filling.
+- Request date is the day the form is filled, read back from the portal to confirm.
+- The month in the description is the current month, not the month of the invoices.
+
 1.1.1 (2026-10-15)
 - Wording is written for whoever uses the tool, not for one person: no 'anh', and the
   folder example shows <Ho ten> instead of a real name.

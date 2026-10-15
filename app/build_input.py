@@ -7,7 +7,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 try: sys.stdout.reconfigure(encoding="utf-8")
 except Exception: pass
 
-from layout import DATA, PEOPLE, people_dirs, scan, read_check_log, check_problem
+from layout import DATA, PEOPLE, people_dirs, scan_full, read_check_log, check_problem
 NAVY="183665"
 
 def load_people():
@@ -34,8 +34,8 @@ def rel(p): return os.path.relpath(p, DATA) if p else ""
 
 def main():
     out_xlsx=os.path.join(DATA,"Request_Input.xlsx")
-    groups=[(p,)+scan(p) for p in people_dirs()]
-    groups=[g for g in groups if g[1]]
+    scans={p:scan_full(p) for p in people_dirs()}
+    groups=[(p,r["invoices"],r["totrinh"]) for p,r in scans.items() if r["invoices"]]
     if not groups: sys.exit("No invoice .xml found in data\\<name>\\.")
     people=load_people()
     today=date.today()
@@ -58,13 +58,8 @@ def main():
         miss_p=[i["stem"] for i in invs if not i["pdf"]]
         # To trinh nguon = every PDF in the person folder that is not an invoice PDF
         totrinh_s=";".join(rel(p) for p in tt)
-        # thang ap dung = thang cua hoa don (YYYY-MM-DD -> MM/YYYY)
-        ngays=[i["ngay"] for i in invs if i["ngay"]]
-        thang=""
-        if ngays:
-            d=max(ngays)   # vd 2026-09-10
-            m=re.match(r"(\d{4})-(\d{2})", d)
-            if m: thang=f"{m.group(2)}/{m.group(1)}"
+        # thang trong dien giai = thang lam de nghi (hom nay), khong theo ngay hoa don
+        thang=today.strftime("%m/%Y")
         # name cua thu muc con = TEN NGUOI; dien giai theo tung nguoi
         person=name
         if person:
@@ -85,6 +80,8 @@ def main():
               + (f" | to trinh: {', '.join(os.path.basename(t) for t in tt)}" if tt else " | NO to trinh PDF")
               + (f" | MISSING check: {miss_c}" if miss_c else "")
               + (f" | MISSING pdf: {miss_p}" if miss_p else ""))
+        for w in scans[name]["warnings"]:
+            print(f"      !! {w}")
         log=read_check_log(name)
         for i in invs:
             r=log.get(os.path.basename(i["xml"]))
@@ -106,10 +103,10 @@ def main():
      ["Mỗi thư mục data\\<Họ tên>\\ thành 1 đơn. XML + PDF cùng tên = hóa đơn, PDF khác = tờ trình, check\\ = kết quả kiểm tra."],
      ["Mỗi dòng = 1 đơn. Kiểm tra lại rồi điền các cột còn trống:"],[""],
      ["Cột","Việc cần làm"],
-     ["Ngay_De_Nghi","Tự điền = hôm nay. Đổi nếu cần (dd/mm/yyyy)."],
+     ["Ngay_De_Nghi","Ngày lúc tool điền đơn (Bước 2 luôn lấy ngày hiện tại)."],
      ["Nguoi_De_Nghi","Đã điền theo tên thư mục. Kiểm tra lại cho khớp tên trên cổng."],
      ["Nguoi_Thu_Huong","Đã điền theo tên. Nếu thụ hưởng là tài khoản thì sửa cho đúng."],
-     ["Dien_Giai","Đã sinh 'Thanh toán chi phí giao dịch khách hàng Tháng MM/YYYY-Tên'. Sửa nếu cần."],
+     ["Dien_Giai","Đã sinh 'Thanh toán chi phí giao dịch khách hàng Tháng MM/YYYY-Tên' (tháng hiện tại). Sửa nếu cần."],
      ["Ten_Hang_Hoa","Tên hàng hóa ghi vào mọi dòng trong danh sách hóa đơn (nút Sửa). Mặc định 'Ăn uống'."],
      ["Nhom_Ke_Toan / Ma_Tien_Te","Đã điền mặc định (Kế toán Đơn vị thành viên / VND)."],
      ["Hinh_Thuc_Thanh_Toan","Mặc định Chuyển khoản. Đổi sang Tiền mặt nếu trả tiền mặt."],

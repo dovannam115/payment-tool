@@ -37,7 +37,7 @@ def main():
             "app/node_modules/playwright-core/package.json", "app/node_modules/pdf-lib/package.json",
             "app/invoice_check/check-print.js", "app/run.py", "app/layout.py",
             "app/server.py", "app/ui/index.html", "app/login.js", "app/update.json",
-            "app/fill_don.js", "app/build_input.py", "VERSION"]
+            "app/fill_don.js", "app/build_input.py", "app/vendor/pypdf/__init__.py", "VERSION"]
     names = set(zipfile.ZipFile(OUT).namelist())
     miss = [m for m in must if f"{TOP}/{m}" not in names]
     if any(".edge-profile" in x for x in names): miss.append("LEAK: .edge-profile")

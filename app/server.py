@@ -2,12 +2,14 @@
 # Started by "Payment Tool.bat" with pyembed\pythonw.exe (no console window).
 #   python.exe app\server.py --diag   -> same server with the log in a console (for troubleshooting)
 import os, re, sys, json, time, glob, codecs, shutil, socket, zipfile, ctypes, tempfile, threading, subprocess, webbrowser
+import io, unicodedata
 import urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from layout import APP, ROOT, DATA, DONE, people_dirs, scan, read_check_log, check_problem
+from layout import (APP, ROOT, DATA, DONE, PEOPLE, people_dirs, scan_full, read_check_log, check_problem,
+                    done_names, pdf_text, pdf_kind)
 
 PORT    = 8711
 HOST    = "127.0.0.1"
@@ -204,8 +206,9 @@ def step_login():
 def person_rows():
     rows = []
     for name in people_dirs():
-        invs, totrinh = scan(name)
-        if not invs and not totrinh: continue
+        sc = scan_full(name)
+        invs, totrinh = sc["invoices"], sc["totrinh"]
+        if not invs and not totrinh and not sc["stray"] and not sc["misplaced"]: continue
         logrows = read_check_log(name)
         cdir = os.path.join(DATA, name, "check")
         have = [f.lower() for f in os.listdir(cdir)] if os.path.isdir(cdir) else []
@@ -236,14 +239,129 @@ def person_rows():
             if prob: problems.append("%s: %s" % (iv["stem"], prob))
             detail.append({"stem": iv["stem"], "so": iv["sh"], "kh": iv["kh"], "ngay": iv["ngay"],
                            "tong": iv["tong"], "seller": iv["seller"],
-                           "pdf": bool(iv["pdf"]), "check": done, "problem": prob,
+                           "pdf": bool(iv["pdf"]), "paired": iv["paired"],
+                           "pdf_name": os.path.basename(iv["pdf"]) if iv["pdf"] else "",
+                           "check": done, "problem": prob,
                            "pdf_file": rel(iv["pdf"]), "check_file": rel(check_pdf(iv))})
         rows.append({"name": name, "invoices": len(invs),
                      "pdf": sum(1 for i in invs if i["pdf"]), "checks": checks,
                      "totrinh": len(totrinh), "checked": bool(logrows),
                      "pending_check": pending,
-                     "problems": problems, "detail": detail})
+                     "problems": problems, "warnings": sc["warnings"], "detail": detail})
     return rows
+
+
+# ------------------------------------------------------------------ intake (files dropped on the window)
+def fold(s):
+    """Lower-case, no accents: 'Đỗ Văn Nam' and 'do van  nam' compare equal."""
+    s = unicodedata.normalize("NFD", s.replace("đ", "d").replace("Đ", "D"))
+    return " ".join("".join(c for c in s if not unicodedata.combining(c)).lower().split())
+
+
+_NAMES = {"sig": None, "list": []}
+def known_names():
+    """Folders already in data\\ plus names in people.xlsx (column Ten); second value = folded people.xlsx names."""
+    try: sig = os.path.getmtime(PEOPLE)
+    except OSError: sig = 0
+    if _NAMES["sig"] != sig:
+        lst = []
+        if sig:
+            try:
+                from openpyxl import load_workbook
+                ws = load_workbook(PEOPLE, read_only=True, data_only=True).active
+                rows = ws.iter_rows(values_only=True)
+                hdr = [str(c or "").strip() for c in next(rows, [])]
+                if "Ten" in hdr:
+                    i = hdr.index("Ten")
+                    lst = [" ".join(str(r[i]).split()) for r in rows if r and len(r) > i and r[i]]
+            except Exception as ex:
+                log("people.xlsx: %s" % ex)
+        _NAMES.update(sig=sig, list=lst)
+    out, seen = [], set()
+    for n in people_dirs() + _NAMES["list"]:
+        if fold(n) not in seen: seen.add(fold(n)); out.append(n)
+    return out, {fold(n) for n in _NAMES["list"]}
+
+
+BAD_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+def clean_name(raw):
+    """Person folder name: NFC, single spaces, snapped to a known spelling; '' if unusable."""
+    n = " ".join(unicodedata.normalize("NFC", raw or "").split())
+    if not n or BAD_NAME.search(n) or n.startswith(("_", ".")) or n.endswith(".") or len(n) > 80: return ""
+    for k in known_names()[0]:
+        if fold(k) == fold(n): return k
+    return n
+
+
+def zip_name(info):
+    """Zip entries without the UTF-8 flag come back as cp437; most Windows zips are really UTF-8."""
+    n = info.filename
+    if not info.flag_bits & 0x800:
+        try: n = n.encode("cp437").decode("utf-8")
+        except Exception: pass
+    return unicodedata.normalize("NFC", n)
+
+
+def save_one(person, fname, data, sub=""):
+    """Write one XML/PDF into data\\<person>\\ (or its check\\). Returns {saved|skipped, note}."""
+    pdir = os.path.join(DATA, person)
+    base = os.path.basename(unicodedata.normalize("NFC", fname).replace("\\", "/"))
+    ext = os.path.splitext(base)[1].lower()
+    if ext not in (".xml", ".pdf") or base.startswith(("~$", ".")):
+        return {"skipped": base, "note": "không phải XML/PDF"}
+    if base.lower() in done_names(person):
+        return {"skipped": base, "note": "đã nộp trước đây (có trong done)"}
+    tdir = os.path.join(pdir, "check") if sub == "check" else pdir
+    os.makedirs(tdir, exist_ok=True)
+    target, note = os.path.join(tdir, base), ""
+    if os.path.exists(target):
+        if open(target, "rb").read() == data: return {"skipped": base, "note": "đã có"}
+        b, e = os.path.splitext(base); k = 2
+        while os.path.exists(os.path.join(tdir, "%s_%d%s" % (b, k, e))): k += 1
+        target = os.path.join(tdir, "%s_%d%s" % (b, k, e))
+        note = "trùng tên với file khác, lưu thành " + os.path.basename(target)
+    with open(target, "wb") as fh: fh.write(data)
+    # a check result dropped together with the invoices goes to check\ by itself
+    if ext == ".pdf" and sub != "check" and pdf_kind(pdf_text(target)) == "check":
+        cdir = os.path.join(pdir, "check"); os.makedirs(cdir, exist_ok=True)
+        dest = os.path.join(cdir, os.path.basename(target))
+        os.replace(target, dest); target = dest
+        note = "là kết quả kiểm tra, đã để vào check"
+    return {"saved": os.path.relpath(target, DATA).replace("\\", "/"), "note": note}
+
+
+def tidy(person):
+    """After an intake: rename invoice PDFs that were paired by number to their XML's name."""
+    notes = []
+    for iv in scan_full(person)["invoices"]:
+        if iv["paired"] not in ("content", "filename"): continue
+        dest = os.path.join(os.path.dirname(iv["pdf"]), iv["stem"] + ".pdf")
+        if os.path.exists(dest): continue
+        os.replace(iv["pdf"], dest)
+        notes.append("%s: khác tên XML nhưng khớp số hóa đơn %s, đã đổi tên thành %s"
+                     % (os.path.basename(iv["pdf"]), iv["sh"].lstrip("0"), os.path.basename(dest)))
+    return notes
+
+
+def intake(raw_name, fname, data, sub=""):
+    person = clean_name(raw_name)
+    if not person: return {"error": "Tên người không hợp lệ: %s" % (raw_name or "(trống)")}
+    if sub not in ("", "check"): sub = ""
+    if os.path.splitext(fname)[1].lower() != ".zip":
+        r = save_one(person, fname, data, sub); r["person"] = person
+        return {"person": person, "files": [r]}
+    out = {"person": person, "files": []}
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            for info in z.infolist():
+                if info.is_dir() or "__MACOSX" in info.filename: continue
+                parts = zip_name(info).replace("\\", "/").split("/")
+                if os.path.splitext(parts[-1])[1].lower() not in (".xml", ".pdf"): continue
+                inner = "check" if len(parts) > 1 and parts[-2].lower() == "check" else sub
+                out["files"].append(save_one(person, parts[-1], z.read(info), inner))
+    except zipfile.BadZipFile:
+        return {"error": "File zip hỏng: %s" % fname}
+    return out
 
 
 def state():
@@ -456,12 +574,32 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/update/check":
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             return self.json(update_check())
+        if p == "/api/names":
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            names, listed = known_names()
+            return self.json({"names": names, "listed": sorted(listed)})
         return self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
         u = urlparse(self.path); q = parse_qs(u.query); p = u.path
         if not self.ok_token(q): return self.json({"error": "token"}, 403)
+        if p == "/api/upload":
+            # raw file bytes in the body; person / file name / subfolder in the query string
+            try: n = int(self.headers.get("Content-Length") or 0)
+            except ValueError: n = 0
+            if n > 60 * 1024 * 1024: return self.json({"error": "File quá lớn (trên 60MB)"}, 413)
+            data = self.rfile.read(n) if n else b""
+            if RUN.busy: return self.json({"error": "Đang chạy một bước, chờ xong rồi thêm file"}, 409)
+            g = lambda k: q.get(k, [""])[0]
+            try: return self.json(intake(g("name"), g("file"), data, g("sub")))
+            except Exception as ex:
+                log("upload: %r" % ex); return self.json({"error": str(ex)}, 500)
         d = self.body()
+        if p == "/api/tidy":
+            notes = []
+            for n in d.get("names") or []:
+                if n in people_dirs(): notes += tidy(n)
+            return self.json({"notes": notes})
         if p == "/api/ping":
             LAST_PING[0] = time.time(); return self.json({"ok": True})
         if p == "/api/run":

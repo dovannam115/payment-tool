@@ -161,6 +161,36 @@
   .inp:focus{outline:none; border-color:var(--line2)}
   iframe{flex:1; border:1px solid var(--line); border-radius:12px; background:var(--bg); min-height:70vh}
   .hide{display:none !important}
+
+  /* drop + intake */
+  .detail .wn{color:var(--warn); padding:3px 0 2px; white-space:normal}
+  .detail .wn:last-of-type{padding-bottom:6px}
+  body.dragging main{outline:2px dashed var(--ember); outline-offset:-8px}
+  tr.dropon td{background:rgba(201,100,66,.16) !important}
+  .dropzone{
+    border:1.5px dashed var(--line2); border-radius:11px; padding:16px; text-align:center;
+    color:var(--muted); font-size:13px; cursor:pointer;
+  }
+  .dropzone:hover{border-color:var(--ember); color:var(--fg)}
+  .veil{position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center;
+        justify-content:center; z-index:20; padding:16px}
+  .modal{background:var(--card); border:1px solid var(--line); border-radius:14px; width:min(720px,100%);
+         max-height:88vh; display:flex; flex-direction:column; box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .modal .mh{padding:15px 18px 4px}
+  .modal .mh h2{margin:0; font-size:15px}
+  .modal .mb{padding:10px 18px; overflow:auto; display:flex; flex-direction:column; gap:10px}
+  .modal .mf{padding:12px 18px 15px; display:flex; gap:8px; justify-content:flex-end; align-items:center;
+             flex-wrap:wrap; border-top:1px solid var(--line)}
+  .grp{display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; background:var(--elev);
+       border:1px solid var(--line); border-radius:11px; padding:10px 12px}
+  .grp .inp{flex:1 1 220px}
+  .grp .meta{color:var(--muted); font-size:12.5px; white-space:nowrap}
+  .grp .nh{flex-basis:100%; font-size:12px; color:var(--muted)}
+  .grp .nh.new{color:var(--warn)}
+  .res{font-size:12.5px; color:var(--muted)}
+  .res div{padding:1px 0}
+  .res .w{color:var(--warn)}
+  .res .e{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -186,6 +216,7 @@
   <header>
     <h1 id="title">Nhập đơn đề nghị thanh toán</h1>
     <div class="sp"></div>
+    <button class="btn sm pri" onclick="openIntake([])">Thêm hồ sơ</button>
     <button class="btn sm" onclick="open_('data')">Thư mục data</button>
     <button class="btn sm" onclick="open_('checklog')">Kết quả kiểm tra</button>
     <button class="btn sm" onclick="open_('input')">File đơn</button>
@@ -234,7 +265,7 @@
         <tbody id="rows"></tbody>
       </table>
       </div>
-      <div class="empty hide" id="noppl">Chưa có ai. Mở "Thư mục data", mỗi người một thư mục, thả hóa đơn vào.</div>
+      <div class="empty hide" id="noppl">Chưa có ai. Kéo thư mục hoặc file hóa đơn (XML, PDF, ZIP) thả vào cửa sổ này.</div>
     </div>
 
     <div class="card run hide" id="runCard">
@@ -290,6 +321,29 @@
     </div>
   </div>
 </main>
+
+<!-- ============ intake ============ -->
+<div class="veil hide" id="veil">
+  <div class="modal">
+    <div class="mh"><h2>Thêm hồ sơ</h2>
+      <p class="res" style="margin:4px 0 0">Mỗi nhóm là một người. Tên phải đúng tên người đề nghị trên cổng.</p></div>
+    <div class="mb">
+      <div id="groups"></div>
+      <div class="dropzone" id="dz">Kéo thả thêm vào đây, hoặc
+        <button class="link" style="color:var(--fg)" onclick="pickFiles(false)">chọn file</button> /
+        <button class="link" style="color:var(--fg)" onclick="pickFiles(true)">chọn thư mục</button></div>
+      <div class="res hide" id="ires"></div>
+    </div>
+    <div class="mf">
+      <span class="res" id="iprog" style="margin-right:auto"></span>
+      <button class="btn" id="b-icancel" onclick="closeIntake()">Hủy</button>
+      <button class="btn pri" id="b-isave" onclick="saveIntake()">Lưu vào data</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="fpick" multiple accept=".xml,.pdf,.zip" class="hide">
+<input type="file" id="dpick" webkitdirectory class="hide">
+<datalist id="namesDL"></datalist>
 
 <script>
 const T = new URLSearchParams(location.search).get("t") || "";
@@ -384,7 +438,11 @@ function drawPeople(){
     if(p.problems.length) pill = '<span class="pill err">' + p.problems.length + ' hóa đơn cần xem</span>';
     else if(p.pending_check === 0 && p.invoices) pill = '<span class="pill ok">Đã kiểm tra</span>';
     else if(p.checked) pill = '<span class="pill wait">Còn ' + p.pending_check + ' chưa kiểm tra</span>';
+    if((p.warnings || []).length)
+      pill += ' <span class="pill wait" data-t="' + i + '" data-name="' + att(p.name) + '" style="cursor:pointer">' +
+              p.warnings.length + ' lưu ý file</span>';
     const tr = document.createElement("tr");
+    tr.dataset.person = p.name;
     tr.innerHTML =
       '<td><input type="checkbox" class="pk" data-name="' + esc(p.name) + '"' + (keep.has(p.name) ? " checked" : "") + '></td>' +
       '<td class="who">' + esc(p.name) + '</td>' +
@@ -400,7 +458,12 @@ function drawPeople(){
     tb.appendChild(tr);
     const d = document.createElement("tr");
     d.className = "detail" + (shown.has(p.name) ? "" : " hide"); d.id = "d" + i;
-    d.innerHTML = '<td colspan="8"><div class="lnwrap"><div class="lns">' + (p.detail.map(x =>
+    d.innerHTML = '<td colspan="8">' +
+      (p.warnings || []).map(w => '<div class="wn">' + esc(w) + '</div>').join("") +
+      p.detail.filter(x => x.paired === "content" || x.paired === "filename").map(x =>
+        '<div class="wn" style="color:var(--muted)">' + esc(x.pdf_name) + ' khác tên XML, đã ghép với ' +
+        esc(x.stem) + '.xml theo số hóa đơn</div>').join("") +
+      '<div class="lnwrap"><div class="lns">' + (p.detail.map(x =>
         '<div class="ln' + (x.problem ? ' bad' : '') + '">' +
         (x.pdf_file
           ? '<b class="open" title="Mở file PDF hóa đơn" data-f="' + att(x.pdf_file) + '">' + esc(x.stem) + '</b>'
@@ -411,7 +474,8 @@ function drawPeople(){
         '<span>số ' + esc(x.so) + '</span><span>' + esc(x.ngay) + '</span>' +
         '<span class="r">' + money(x.tong) + '</span>' +
         '<span class="s">' + esc(x.seller) +
-          (x.pdf ? '' : ' | thiếu PDF') + (x.check ? '' : ' | chưa kiểm tra') +
+          (x.pdf ? '' : ' | thiếu PDF') +
+          (x.check ? '' : ' | chưa kiểm tra') +
           (x.problem ? ' | ' + esc(x.problem) : '') + '</span>' +
         '</div>'
       ).join("") || '<div class="ln">Không có hóa đơn XML, chỉ có tờ trình.</div>') + '</div></div></td>';
@@ -458,6 +522,13 @@ async function run(action, extra){
   }
   if(action === "fill" && !names.length && (ST.people || []).length > 1){
     if(!confirm("Chưa chọn ai. Điền đơn cho tất cả " + ST.people.length + " người?")) return;
+  }
+  if(action === "fill"){
+    const scope = (ST.people || []).filter(p => !names.length || names.includes(p.name));
+    const warn = scope.filter(p => (p.warnings || []).length);
+    if(warn.length && !confirm("Còn lưu ý về file:\n\n" +
+        warn.map(p => p.name + ":\n  - " + p.warnings.join("\n  - ")).join("\n\n") +
+        "\n\nVẫn điền đơn?")) return;
   }
   const body = Object.assign({action, names, redo: $("redo").checked}, extra || {});
   $("out").textContent = "";
@@ -513,6 +584,210 @@ async function poll(){
 }
 async function answer(){ $("askBar").classList.add("hide"); await api("/api/answer", {text:""}); }
 async function stop(){ await api("/api/stop", {}); }
+
+/* ---------- intake: drop folders/files on the window -> data\<Họ tên>\ ---------- */
+// A group = one person: {name, files:[{file, sub}]}. sub "check" keeps files of a check\ subfolder there.
+const OK_EXT = /\.(xml|pdf|zip)$/i;
+let GROUPS = [], NAMES = {names:[], listed:new Set(), dirs:new Set()}, saving = false;
+const fold = (s) => String(s || "").replace(/[đĐ]/g, "d").normalize("NFD").replace(/[̀-ͯ]/g, "")
+                                  .toLowerCase().replace(/\s+/g, " ").trim();
+
+async function loadNames(){
+  const r = await api("/api/names");
+  if(r.error) return;
+  NAMES = {names:r.names, listed:new Set(r.listed), dirs:new Set((ST.people || []).map(p => fold(p.name)))};
+  $("namesDL").innerHTML = r.names.map(n => '<option value="' + att(n) + '">').join("");
+}
+
+// [{file, path}] with path "Folder/sub/x.pdf" (dropped or picked folders) or "x.pdf" (loose files)
+function groupFiles(items, target){
+  const loose = [], tops = new Map();
+  for(const it of items){
+    const parts = it.path.split("/");
+    if(parts.length === 1){ loose.push(it); continue; }
+    if(!tops.has(parts[0])) tops.set(parts[0], []);
+    tops.get(parts[0]).push(it);
+  }
+  const out = [];
+  const add = (name, list, depth) => {
+    const files = list.map(it => {
+      const ps = it.path.split("/");
+      return {file:it.file, sub: ps.length > depth + 1 && ps[ps.length - 2].toLowerCase() === "check" ? "check" : ""};
+    });
+    out.push({name, files});
+  };
+  for(const [top, list] of tops){
+    // files right inside the folder -> the folder is one person; otherwise each subfolder is a person
+    const direct = list.filter(it => it.path.split("/").length === 2 && OK_EXT.test(it.file.name));
+    if(direct.length || target){ add(target || top, list, 1); continue; }
+    const subs = new Map();
+    for(const it of list){
+      const s = it.path.split("/")[1];
+      if(s.toLowerCase() === "check") continue;
+      if(!subs.has(s)) subs.set(s, []);
+      subs.get(s).push(it);
+    }
+    for(const [s, l] of subs) add(s, l.map(it => ({file:it.file, path:it.path.split("/").slice(1).join("/")})), 1);
+  }
+  if(loose.length) out.unshift({name: target || "", files: loose.map(it => ({file:it.file, sub:""}))});
+  return out;
+}
+
+function mergeGroups(gs){
+  for(const g of gs){
+    const same = GROUPS.find(x => x.name && fold(x.name) === fold(g.name)) ||
+                 (!g.name && GROUPS.find(x => !x.name));
+    if(same) same.files.push(...g.files); else GROUPS.push(g);
+  }
+  drawGroups();
+}
+
+async function openIntake(gs){
+  if(busy){ say("Đang chạy một bước, chờ xong rồi thêm hồ sơ."); return; }
+  if($("veil").classList.contains("hide")){
+    GROUPS = []; saving = false;
+    $("ires").classList.add("hide"); $("ires").innerHTML = ""; $("iprog").textContent = "";
+    $("b-isave").classList.remove("hide"); $("b-isave").disabled = false;
+    $("b-icancel").textContent = "Hủy"; $("dz").classList.remove("hide");
+    $("veil").classList.remove("hide");
+    await loadNames();
+  }
+  mergeGroups(gs);
+}
+function closeIntake(){
+  if(saving) return;
+  $("veil").classList.add("hide"); GROUPS = [];
+  load();
+}
+
+function nameHint(n){
+  const f = fold(n);
+  if(!f) return ["Nhập họ tên người đề nghị", true];
+  const known = NAMES.names.find(k => fold(k) === f);
+  if(known && known !== n.trim()) return ["Sẽ lưu thành: " + known, false];
+  if(NAMES.dirs.has(f)) return ["Đã có trong đợt này, file được thêm vào", false];
+  if(NAMES.listed.has(f)) return ["Có trong danh sách người", false];
+  return ["Tên mới, chưa có trong danh sách. Kiểm tra đúng tên trên cổng", true];
+}
+
+function drawGroups(){
+  const box = $("groups"); box.innerHTML = "";
+  GROUPS.forEach((g, i) => {
+    const cnt = {xml:0, pdf:0, zip:0, other:0};
+    g.files.forEach(f => { const m = f.file.name.match(OK_EXT); cnt[m ? m[1].toLowerCase() : "other"]++; });
+    const meta = [cnt.xml && cnt.xml + " XML", cnt.pdf && cnt.pdf + " PDF", cnt.zip && cnt.zip + " ZIP",
+                  cnt.other && cnt.other + " file khác (bỏ qua)"].filter(Boolean).join(", ");
+    const [hint, warn] = nameHint(g.name);
+    const el = document.createElement("div");
+    el.className = "grp";
+    el.innerHTML = '<input class="inp" list="namesDL" placeholder="Họ tên người đề nghị" value="' + att(g.name) + '">' +
+      '<span class="meta">' + esc(meta || "không có file") + '</span>' +
+      '<button class="link">Bỏ</button>' +
+      '<span class="nh' + (warn ? ' new' : '') + '">' + esc(hint) + '</span>';
+    const inp = el.querySelector("input"), nh = el.querySelector(".nh");
+    inp.oninput = () => { g.name = inp.value; const [h, w] = nameHint(g.name); nh.textContent = h; nh.classList.toggle("new", w); };
+    el.querySelector("button").onclick = () => { GROUPS.splice(i, 1); drawGroups(); };
+    box.appendChild(el);
+  });
+  $("b-isave").disabled = !GROUPS.length;
+}
+
+async function saveIntake(){
+  const todo = GROUPS.filter(g => g.files.some(f => OK_EXT.test(f.file.name)));
+  const noname = todo.filter(g => !g.name.trim());
+  if(!todo.length){ $("iprog").textContent = "Không có file XML, PDF hoặc ZIP."; return; }
+  if(noname.length){ $("iprog").textContent = "Còn nhóm chưa có họ tên."; return; }
+  saving = true; $("b-isave").disabled = true; $("b-icancel").disabled = true; $("dz").classList.add("hide");
+  const files = [];
+  todo.forEach(g => g.files.forEach(f => { if(OK_EXT.test(f.file.name)) files.push({g, ...f}); }));
+  let n = 0, saved = 0;
+  const notes = [], errs = [], who = new Set();
+  for(const f of files){
+    $("iprog").textContent = "Đang lưu " + (++n) + "/" + files.length;
+    let r;
+    try{
+      const q = "name=" + encodeURIComponent(f.g.name.trim()) + "&file=" + encodeURIComponent(f.file.name) +
+                "&sub=" + f.sub + "&t=" + encodeURIComponent(T);
+      const resp = await fetch("/api/upload?" + q, {method:"POST", headers:{"X-Token":T}, body:f.file});
+      r = await resp.json();
+    }catch(e){ r = {error: "Không đọc được file " + f.file.name}; }
+    if(r.error){ errs.push(r.error); continue; }
+    who.add(r.person);
+    for(const x of r.files || []){
+      if(x.saved) saved++;
+      if(x.note) notes.push((x.saved ? x.saved.split("/").pop() : x.skipped) + ": " + x.note);
+    }
+  }
+  if(who.size){
+    const t = await api("/api/tidy", {names:[...who]});
+    notes.push(...(t.notes || []));
+  }
+  saving = false; $("b-icancel").disabled = false;
+  $("b-isave").classList.add("hide"); $("b-icancel").textContent = "Đóng";
+  $("iprog").textContent = "Đã lưu " + saved + " file cho " + who.size + " người.";
+  $("ires").innerHTML = errs.map(e => '<div class="e">' + esc(e) + '</div>').join("") +
+                        notes.map(e => '<div class="w">' + esc(e) + '</div>').join("");
+  $("ires").classList.toggle("hide", !errs.length && !notes.length);
+  $("groups").innerHTML = "";
+  // open the invoice list of these people so their file warnings are in view
+  who.forEach(n => shown.add(n));
+  lastPeople = "";
+  load();
+}
+
+// --- reading what was dropped (folders are walked with the entry API)
+function readAll(dir){
+  return new Promise(res => {
+    const r = dir.createReader(), all = [];
+    const next = () => r.readEntries(b => { if(!b.length) return res(all); all.push(...b); next(); }, () => res(all));
+    next();
+  });
+}
+async function walk(entry, path, out){
+  if(entry.isFile){
+    await new Promise(res => entry.file(f => { out.push({file:f, path:path + f.name}); res(); }, () => res()));
+  } else if(entry.isDirectory){
+    for(const e of await readAll(entry)) await walk(e, path + entry.name + "/", out);
+  }
+}
+async function dropped(dt){
+  const entries = [...dt.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const out = [];
+  if(entries.length){ for(const e of entries) await walk(e, "", out); }
+  else for(const f of dt.files) out.push({file:f, path:f.name});
+  return out;
+}
+
+let dragDepth = 0;
+const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+function rowAt(e){ return e.target.closest && e.target.closest("tr[data-person]"); }
+window.addEventListener("dragenter", e => { if(!hasFiles(e)) return; e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+window.addEventListener("dragleave", e => { if(!hasFiles(e)) return; if(--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove("dragging"); } });
+window.addEventListener("dragover", e => {
+  if(!hasFiles(e)) return;
+  e.preventDefault();
+  document.querySelectorAll("tr.dropon").forEach(t => t.classList.remove("dropon"));
+  const tr = $("veil").classList.contains("hide") && rowAt(e);
+  if(tr) tr.classList.add("dropon");
+});
+window.addEventListener("drop", async e => {
+  if(!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0;
+  document.body.classList.remove("dragging");
+  document.querySelectorAll("tr.dropon").forEach(t => t.classList.remove("dropon"));
+  if(saving) return;
+  const tr = $("veil").classList.contains("hide") && rowAt(e);
+  const items = await dropped(e.dataTransfer);
+  if(items.length) openIntake(groupFiles(items, tr ? tr.dataset.person : ""));
+});
+function pickFiles(dir){ $(dir ? "dpick" : "fpick").click(); }
+for(const id of ["fpick", "dpick"]){
+  $(id).onchange = (e) => {
+    const items = [...e.target.files].map(f => ({file:f, path:f.webkitRelativePath || f.name}));
+    e.target.value = "";
+    if(items.length) openIntake(groupFiles(items, ""));
+  };
+}
 
 /* ---------- misc ---------- */
 async function open_(what, name){

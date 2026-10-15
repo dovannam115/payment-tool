@@ -315,7 +315,13 @@ function label(d){ const f=d.fields||{}; const n=(d.xml||[]).length;
     const rep=[];
     const T = async (label, fn) => { const s=Date.now(); let r; try{ r=await fn(); }catch(e){ r="ERR:"+e.message; } return `  ${label.padEnd(16)}: ${r}  [${Date.now()-s}ms]`; };
     // NATURAL ORDER (top to bottom of the form): header fields + beneficiary + attach, THEN import XML, THEN per-row check.
-    rep.push(await T("ngay_ctu", ()=>setDate(page, F.Ngay_De_Nghi)));
+    // request date = the day it is filled, never a date carried over from an older input file
+    const now=new Date(), today=`${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()}`;
+    rep.push(await T("ngay_ctu", async ()=>{
+      const r=await setDate(page, today);
+      const shown=(await page.inputValue("#ngay_ctu",{timeout:2000}).catch(()=>"")).trim();
+      return shown===today ? `${r} ${today}` : `!! form shows '${shown}', expected ${today} - pick the date by hand`;
+    }));
     for(const [col,id] of Object.entries(SELECT_IDS))
       if(col in F) rep.push(await T(id, ()=>setSelect(page,id,F[col])));
     for(const [col,id] of Object.entries(TEXT_IDS))
