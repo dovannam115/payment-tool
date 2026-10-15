@@ -3,113 +3,119 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quy trình vận hành</title>
+<meta name="google" content="notranslate">
+<title>Cách dùng Payment Tool</title>
 <style>
   :root{
-    --navy:#183665; --red:#E31F26; --ink:#1f2a37;
-    --muted:#5b6b7a; --line:#e2e8f0; --soft:#f4f7f9; --badge:#183665;
+    --bg:#262624; --card:#34322D; --line:#46443F; --line2:#4D4A45;
+    --fg:#F5F4ED; --muted:#A19D93; --dim:#777267; --accent:#c96442;
+  }
+  :root[data-theme="light"]{
+    --bg:#FAFAF7; --card:#FFFFFF; --line:#E3E0D6; --line2:#D6D2C6;
+    --fg:#2E2D2A; --muted:#6B675E; --dim:#8D8878;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
+  html,body{margin:0}
   body{
-    font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;
-    color:var(--ink); background:#fff; line-height:1.4; font-size:13px;
+    background:var(--bg); color:var(--fg);
+    font:14px/1.5 "Segoe UI",system-ui,Arial,sans-serif; letter-spacing:-.006em;
+    -webkit-font-smoothing:antialiased;
   }
-  .page{max-width:820px; margin:0 auto; padding:22px 26px}
-  header{border-bottom:3px solid var(--navy); padding-bottom:10px; margin-bottom:14px}
-  .brand{display:flex; align-items:baseline; gap:10px}
-  h1{font-size:20px; color:var(--navy); margin:0; letter-spacing:.2px}
-  .sub{color:var(--muted); font-size:12px; margin-top:3px}
-  .tag{margin-left:auto; color:var(--red); font-weight:700; font-size:12px}
-  .phase{margin:14px 0 6px; display:flex; align-items:center; gap:8px}
-  .phase .dot{width:9px;height:9px;border-radius:50%;background:var(--red)}
-  .phase h2{font-size:13.5px; color:var(--navy); margin:0; text-transform:uppercase; letter-spacing:.4px}
-  .phase .when{color:var(--muted); font-size:11.5px; font-weight:400; text-transform:none; letter-spacing:0}
-  .steps{display:flex; flex-direction:column; gap:7px; margin:0}
-  .step{display:flex; gap:10px; align-items:flex-start; background:var(--soft);
-        border:1px solid var(--line); border-radius:8px; padding:8px 11px; page-break-inside:avoid}
-  .num{flex:0 0 auto; width:22px;height:22px;border-radius:6px;background:var(--badge);
-       color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:1px}
-  .body{flex:1}
-  .act{font-weight:600}
-  .menu{display:inline-block; background:#fff; border:1px solid var(--navy); color:var(--navy);
-        border-radius:5px; padding:0 6px; font-weight:700; font-size:11.5px; margin-left:4px}
-  .out{color:var(--muted); font-size:11.5px; margin-top:2px}
-  .manual{background:#fff; border:1px dashed var(--red)}
-  .manual .num{background:var(--red)}
-  .foot{margin-top:14px; border-top:1px solid var(--line); padding-top:8px;
-        color:var(--muted); font-size:11px; display:flex; justify-content:space-between}
-  .note{margin-top:10px; background:var(--soft);
-        padding:8px 11px; border-radius:6px; font-size:12px}
-  .note b{color:var(--navy)}
+  .page{max-width:900px; margin:0 auto; padding:26px 28px 34px}
+  h1{font-size:16px; margin:0 0 2px; font-weight:650}
+  .sub{color:var(--dim); font-size:12px; margin-bottom:22px}
+  h2{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+     font-weight:600; margin:26px 0 12px}
+
+  /* flow */
+  .flow{display:grid; grid-template-columns:1fr 18px 1fr 18px 1fr 18px 1fr; align-items:stretch; gap:0}
+  .node{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 14px}
+  .node .n{font-size:11px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase}
+  .node b{display:block; font-size:14px; font-weight:650; margin:3px 0 4px}
+  .node span{display:block; color:var(--muted); font-size:12.5px}
+  .arrow{display:flex; align-items:center; justify-content:center; color:var(--line2)}
+  .arrow svg{width:18px; height:18px}
+
+  /* folders */
+  .cols{display:grid; grid-template-columns:1.25fr 1fr; gap:14px}
+  .box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .tree{font:12.6px/1.95 ui-monospace,"Cascadia Mono",Consolas,monospace; white-space:pre}
+  .tree i{font-style:normal; color:var(--dim)}
+  .tree u{text-decoration:none; color:var(--accent)}
+  .note{display:flex; gap:10px; padding:7px 0; font-size:13px; align-items:baseline}
+  .note b{flex:0 0 118px; font-weight:600}
+  .note span{color:var(--muted)}
+  .box h3{margin:0 0 8px; font-size:13px; font-weight:650}
+
   @media print{
-    @page{size:A4 portrait; margin:12mm}
-    body{font-size:12px; zoom:.96}
+    @page{size:A4 landscape; margin:10mm}
+    :root{--bg:#fff; --card:#fff; --line:#d8d4c9; --line2:#b9b4a7;
+          --fg:#23221f; --muted:#5c584f; --dim:#86816f}
+    body{font-size:12px}
     .page{padding:0; max-width:none}
-    .step,.phase{page-break-inside:avoid}
+    .node,.box{break-inside:avoid}
   }
 </style>
 </head>
 <body>
 <div class="page">
-  <header>
-    <div class="brand">
-      <h1>Nhập đơn đề nghị thanh toán</h1>
-      <span class="tag">PVI DIGITAL</span>
+  <h1>Payment Tool</h1>
+  <div class="sub">Nhấn đúp "Payment Tool.bat" rồi làm 1, 2, 3.</div>
+
+  <div class="flow">
+    <div class="node">
+      <div class="n">Chuẩn bị</div><b>Thả file vào data</b>
+      <span>Mỗi người 1 thư mục</span>
     </div>
-    <div class="sub">Nhấn đúp "Payment Tool.bat", cửa sổ tool hiện ra. Mỗi tháng làm lần lượt Bước 1, 2, 3.</div>
-  </header>
-
-  <div class="phase"><span class="dot"></span><h2>Cách xếp file</h2><span class="when">mỗi người 1 thư mục</span></div>
-  <div class="steps">
-    <div class="step"><div class="num">A</div><div class="body">
-      <span class="act">data\&lt;Họ tên&gt;</span>
-      <div class="out">Bấm nút "Thư mục data" trên tool để mở. Mỗi người 1 thư mục, thả thẳng vào đó: XML hóa đơn, PDF hóa đơn (cùng tên với XML) và PDF tờ trình nguồn của phòng. Không cần chia thư mục con.</div></div></div>
-    <div class="step"><div class="num">B</div><div class="body">
-      <span class="act">Thư mục check</span>
-      <div class="out">Tool tự tạo khi chạy Bước 1, chứa PDF kết quả kiểm tra của từng hóa đơn. Chưa muốn nộp người nào thì kéo thư mục người đó vào data\_hold (thư mục bắt đầu bằng _ được bỏ qua).</div></div></div>
-    <div class="step"><div class="num">C</div><div class="body">
-      <span class="act">done\YYYY-MM\&lt;Họ tên&gt;</span>
-      <div class="out">Người đã Lưu đơn trên cổng, xếp theo tháng. Giữ lại để đợt sau không nộp trùng hóa đơn cũ.</div></div></div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="node">
+      <div class="n">Bước 1</div><b>Kiểm tra hóa đơn</b>
+      <span>Ra PDF kết quả</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="node">
+      <div class="n">Bước 2</div><b>Điền đơn lên cổng</b>
+      <span>Dừng trước nút Lưu</span>
+    </div>
+    <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+    <div class="node">
+      <div class="n">Bước 3</div><b>Chuyển sang done</b>
+      <span>Xong một đợt</span>
+    </div>
   </div>
 
-  <div class="phase"><span class="dot"></span><h2>Các bước</h2><span class="when">mỗi tháng</span></div>
-  <div class="steps">
-    <div class="step"><div class="num">1</div><div class="body">
-      <span class="act">Kiểm tra hóa đơn</span><span class="menu">Bước 1</span>
-      <div class="out">Chạy Invoice Check cho hóa đơn chưa có kết quả, PDF lưu vào data\&lt;Họ tên&gt;\check.
-      Bấm "Kết quả kiểm tra" để mở data\Check_Log.xlsx: hóa đơn hợp lệ hay không, nhà cung cấp còn hoạt động hay không, dòng có vấn đề tô đỏ.
-      Muốn làm lại cả hóa đơn đã có kết quả thì tích ô "Kiểm tra lại cả HĐ đã có".</div></div></div>
-    <div class="step"><div class="num">2</div><div class="body">
-      <span class="act">Điền đơn lên cổng</span><span class="menu">Bước 2</span>
-      <div class="out">Tích chọn người trong bảng rồi bấm "Điền đơn" (không tích ai là làm cho tất cả).
-      Chưa đăng nhập cổng thì tool mở sẵn trang đăng nhập trong cửa sổ Edge, đăng nhập xong tool tự chạy tiếp, không phải bấm gì thêm.
-      Tool điền trường, import XML, đính tờ trình và file check vào FILE ĐÍNH KÈM, rồi bấm Sửa từng dòng hóa đơn: tên hàng hóa thành "Ăn uống" và đính hóa đơn PDF.
-      Tool DỪNG trước nút Lưu. Kiểm tra lại trên cổng, bấm Lưu, rồi bấm "Tiếp tục" trên tool để sang người kế tiếp.
-      Hóa đơn bị cổng báo "Nhà cung cấp chưa tồn tại" được loại ra, ghi dấu !! trên màn hình chạy (cần báo Kế toán khai báo NCC rồi nộp sau).</div></div></div>
-    <div class="step manual"><div class="num">3</div><div class="body">
-      <span class="act">Chuyển người đã Lưu sang done</span><span class="menu">Bước 3</span>
-      <div class="out">Tích đúng những người đã bấm Lưu trên cổng rồi bấm "Đã lưu xong", tool chuyển thư mục của họ sang done\tháng hiện tại.</div></div></div>
+  <h2>File để đâu</h2>
+  <div class="cols">
+    <div class="box">
+      <div class="tree">data\
+  <u>Đỗ Văn Nam</u>\
+    13213_1C26MAA.xml     <i>hóa đơn</i>
+    13213_1C26MAA.pdf     <i>bản thể hiện, cùng tên XML</i>
+    ToTrinh_Nguon.pdf     <i>tờ trình, tên khác</i>
+    check\                <i>tool tự tạo ở Bước 1</i>
+done\
+  2026-10\<u>Đỗ Văn Nam</u>\      <i>đã lưu trên cổng</i></div>
+    </div>
+    <div class="box">
+      <h3>Nhớ 3 điều</h3>
+      <div class="note"><b>Chưa nộp ai</b><span>Đổi tên thư mục thành _Tên, tool bỏ qua</span></div>
+      <div class="note"><b>Chưa đăng nhập</b><span>Bước 2 tự mở trang đăng nhập, đăng nhập xong tool chạy tiếp</span></div>
+      <div class="note"><b>Có bản mới</b><span>Chấm xanh ở mục Cập nhật, bấm tải rồi khởi động lại</span></div>
+    </div>
   </div>
 
-  <div class="phase"><span class="dot"></span><h2>Cập nhật tool</h2><span class="when">khi có bản mới</span></div>
-  <div class="steps">
-    <div class="step"><div class="num">4</div><div class="body">
-      <span class="act">Mục Cập nhật bên trái</span>
-      <div class="out">Có chấm xanh cạnh chữ "Cập nhật" là có bản mới. Vào đó bấm "Tải và cài bản mới", đợi vài giây rồi bấm "Khởi động lại tool".
-      Dữ liệu trong data, done, people.xlsx không bị đụng tới. Máy không vào được GitHub thì xin file zip source rồi dán đường dẫn vào ô "Cài từ file zip".</div></div></div>
-  </div>
-
-  <div class="note">
-    <b>Chuẩn bị 1 lần:</b> giải nén ra đường dẫn ngắn, ngoài OneDrive (vd C:\Payment-Tool). Bấm "Đăng nhập cổng" một lần để lưu phiên.
-    Ngân hàng và số tài khoản: khai trong <b>people.xlsx</b> thì tool điền sẵn, chưa có thì bấm <b>Chọn Người Thụ Hưởng</b> trên cổng (cổng tự điền ngân hàng + số TK).
-    Phiên đăng nhập hết hạn sau một thời gian, lúc đó Bước 2 sẽ tự mở lại trang đăng nhập.
-  </div>
-
-  <div class="foot">
-    <span>Payment Tool &middot; PVI Digital</span>
-    <span>Cập nhật 15/10/2026</span>
+  <h2>Bước 2 làm những gì</h2>
+  <div class="box">
+    <div class="note"><b>Điền</b><span>Ngày, người đề nghị, hình thức, ngân hàng, diễn giải</span></div>
+    <div class="note"><b>Import</b><span>XML từng hóa đơn vào bảng trên cổng</span></div>
+    <div class="note"><b>Đính kèm</b><span>Tờ trình và PDF kết quả kiểm tra</span></div>
+    <div class="note"><b>Sửa từng dòng</b><span>Tên hàng hóa và PDF hóa đơn</span></div>
+    <div class="note"><b>Dừng</b><span>Anh soát lại rồi tự bấm Lưu, tool không bấm</span></div>
   </div>
 </div>
+<script>
+  var t = new URLSearchParams(location.search).get("theme");
+  if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+</script>
 </body>
 </html>

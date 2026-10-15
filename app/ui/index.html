@@ -157,7 +157,7 @@
     padding:8px 11px; font:inherit; font-size:13px; flex:1; min-width:0;
   }
   .inp:focus{outline:none; border-color:var(--line2)}
-  iframe{flex:1; border:1px solid var(--line); border-radius:12px; background:#fff; min-height:70vh}
+  iframe{flex:1; border:1px solid var(--line); border-radius:12px; background:var(--bg); min-height:70vh}
   .hide{display:none !important}
 </style>
 </head>
@@ -194,7 +194,7 @@
     <div class="steps">
       <div class="card step">
         <div><div class="no">Bước 1</div><h2>Kiểm tra hóa đơn</h2>
-          <p>Chạy Invoice Check cho hóa đơn chưa có kết quả, lưu PDF vào thư mục check của từng người.</p></div>
+          <p>Hóa đơn chưa có kết quả, ra PDF check.</p></div>
         <div class="act">
           <button class="btn pri" id="b-check" onclick="run('check')">Kiểm tra</button>
           <label class="ck"><input type="checkbox" id="redo"> Kiểm tra lại cả HĐ đã có</label>
@@ -202,13 +202,13 @@
       </div>
       <div class="card step">
         <div><div class="no">Bước 2</div><h2>Điền đơn lên cổng</h2>
-          <p>Tự tạo file đơn, điền trường, import XML, đính tờ trình và file check, sửa từng dòng hóa đơn. Chưa đăng nhập thì tool mở sẵn cổng để đăng nhập rồi tự chạy tiếp. Dừng trước nút Lưu.</p></div>
+          <p>Điền, import XML, đính kèm. Dừng trước nút Lưu.</p></div>
         <div class="act"><button class="btn pri" id="b-fill" onclick="run('fill')">Điền đơn</button>
           <button class="btn gho sm" onclick="run('login')">Đăng nhập cổng</button></div>
       </div>
       <div class="card step">
         <div><div class="no">Bước 3</div><h2>Chuyển sang done</h2>
-          <p>Người đã bấm Lưu trên cổng thì chuyển thư mục của họ sang done theo tháng, để đợt sau không nộp trùng.</p></div>
+          <p>Người đã Lưu trên cổng thì cất sang done.</p></div>
         <div class="act"><button class="btn" id="b-arch" onclick="run('archive')">Đã lưu xong</button></div>
       </div>
     </div>
@@ -217,6 +217,7 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <h2 style="margin:0">Người trong đợt này</h2>
         <span class="no" id="cnt"></span>
+        <span class="no" id="hint">không chọn ai là làm tất cả</span>
         <div class="sp" style="flex:1"></div>
         <button class="btn sm gho" onclick="pickAll(true)">Chọn tất cả</button>
         <button class="btn sm gho" onclick="pickAll(false)">Bỏ chọn</button>
@@ -231,10 +232,10 @@
         <tbody id="rows"></tbody>
       </table>
       </div>
-      <div class="empty hide" id="noppl">Chưa có ai trong thư mục data. Mở "Thư mục data" rồi tạo 1 thư mục cho mỗi người, thả XML + PDF hóa đơn + PDF tờ trình vào đó.</div>
+      <div class="empty hide" id="noppl">Chưa có ai. Mở "Thư mục data", mỗi người một thư mục, thả hóa đơn vào.</div>
     </div>
 
-    <div class="card run" id="runCard">
+    <div class="card run hide" id="runCard">
       <div class="head">
         <div class="spin hide" id="spin"></div>
         <b id="runLabel">Màn hình chạy</b>
@@ -247,7 +248,7 @@
         <button class="btn pri sm" onclick="answer()">Tiếp tục</button>
       </div>
       <div class="prog hide" id="progRow"><span class="spin"></span><span id="progText"></span></div>
-      <pre id="out">Chọn người ở bảng trên rồi bấm một bước. Không chọn ai thì Bước 1 và Bước 2 làm cho tất cả.</pre>
+      <pre id="out"></pre>
     </div>
   </div>
 
@@ -279,7 +280,7 @@
     </div>
     <div class="card">
       <h2>Cài từ file zip</h2>
-      <p>Khi máy không vào được GitHub: dán đường dẫn file zip source rồi bấm Cài.</p>
+      <p>Khi máy không vào được GitHub.</p>
       <div style="display:flex;gap:8px;margin-top:10px">
         <input class="inp" id="zipPath" placeholder="C:\Users\...\Downloads\thanhtoan-new-main.zip">
         <button class="btn" onclick="runZip()">Cài</button>
@@ -322,6 +323,7 @@ function toggleTheme(){
   const dark = document.documentElement.dataset.theme !== "light";
   document.documentElement.dataset.theme = dark ? "light" : "dark";
   $("themeBtn").textContent = dark ? "Nền tối" : "Nền sáng";
+  if($("gframe").src) $("gframe").src = "/guide?theme=" + document.documentElement.dataset.theme;
   try{ localStorage.setItem("pt_theme", dark ? "light" : "dark"); }catch(e){}
 }
 try{
@@ -340,7 +342,7 @@ function go(v){
   }
   $("title").textContent = TITLES[v];
   // an iframe with an empty src reports the page URL, so track it with a flag instead
-  if(v === "guide" && !$("gframe").dataset.on){ $("gframe").dataset.on = "1"; $("gframe").src = "/guide"; }
+  if(v === "guide") $("gframe").src = "/guide?theme=" + (document.documentElement.dataset.theme || "dark");
   if(v === "upd") checkUpd(false);
 }
 
@@ -468,9 +470,11 @@ function runZip(){
   go("work"); run("update", {mode:"local", zip:z});
 }
 function say(msg){
+  $("runCard").classList.remove("hide");
   const o = $("out"); o.textContent += (o.textContent ? "\n" : "") + msg; o.scrollTop = o.scrollHeight;
 }
 function startPoll(label){
+  $("runCard").classList.remove("hide");
   $("runLabel").textContent = label;
   setBusy(true);
   if(polling) clearInterval(polling);

@@ -1,5 +1,11 @@
 Payment Tool - release notes
 
+1.0.9 (2026-10-15)
+- Cleaner screen: one short line per step, and the log panel only shows up while
+  something is running.
+- The guide is now a picture of the flow instead of a page of text, and follows the
+  light or dark setting of the tool.
+
 1.0.8 (2026-10-15)
 - Check result PDFs no longer carry the 'M-invoice Support' chat bubble in the corner.
   The widget was removed once but drew itself again before the page was printed.
