@@ -321,7 +321,7 @@ async function savePdf(ctx, rp, outFile) {
         const out = path.join(outDir, `${path.basename(r.file, path.extname(r.file))}.pdf`);
         await savePdf(ctx, rp, out); r.out = out;
         // the seller line can fill in while the PDF is made: read it again so log and PDF agree
-        if (!r.taxStatus) setTax(r, await readTaxStatus(rp), opt.tax);
+        if (!r.taxStatus && opt.tax) setTax(r, await readTaxStatus(rp), opt.tax);
         await rp.close();
       } catch (e) { r.status = 'ERROR'; r.note = e.message.split('\n')[0]; }
       drawBar('Export', ++d2, todo);

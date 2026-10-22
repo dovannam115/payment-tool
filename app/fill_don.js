@@ -330,6 +330,10 @@ function label(d){ const f=d.fields||{}; const n=(d.xml||[]).length;
     const noneOk = (d.invoices||[]).length>0 && (d.invoices||[]).every(iv=>iv.skipped);
     if(noneOk){
       rep.push("  >> WHOLE REQUEST SKIPPED: the portal rejected every invoice. Do NOT save this one.");
+      // seen 22/10/2026: the portal's own server failed ("Object reference not set...") and answered
+      // "Nha cung cap chua ton tai" / "sai MST nguoi mua" for invoices that had gone in fine before
+      rep.push("  >> When EVERY invoice is rejected, the portal itself is usually down, not the invoices.\n"+
+               "     Import one XML by hand on the portal: if that fails too, tell the portal admin and try later.");
     } else {
     // FILE DINH KEM = to trinh + all check PDFs. Invoice PDF is NOT attached here (it goes into each row's "Sua").
     // every PDF in the person's check\ folder (any name), minus the ones of invoices the portal rejected

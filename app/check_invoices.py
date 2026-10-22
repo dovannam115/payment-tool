@@ -57,10 +57,10 @@ def check_all(people, redo=False, tax=True):
         node = IC_NODE if os.path.exists(IC_NODE) else "node"
         jobs = str(min(total, 5))    # check phase: 5 in parallel, 10 got throttled by the site (export is capped inside Invoice Check)
         print(f"  Checking {total} invoice(s) of {sum(1 for x in todo.values() if x)} person(s) in one run ({jobs} parallel)...")
+        if not tax: print("  Seller tax status: not looked up (faster)")
         sys.stdout.flush()
         # stdout/stderr passed on purpose: without it the child writes to its own console
         # instead of our pipe, and the UI would show none of the Invoice Check output
-        if not tax: print("  Seller tax status: not looked up (faster)")
         subprocess.call([node, IC_JS, tmp, "--pdf", "--jobs", jobs] + ([] if tax else ["--no-tax"]), cwd=IC,
                         creationflags=NO_WINDOW, stdout=sys.stdout, stderr=subprocess.STDOUT)
         res = os.path.join(tmp, "CheckResults"); n = 0

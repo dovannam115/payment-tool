@@ -1,13 +1,21 @@
 Payment Tool - release notes
 
+1.3.3 (2026-10-22)
+- 'Điền đơn lên cổng': when the portal rejects every invoice of a request, the log now says
+  this usually means the portal itself is failing, not the invoices. On 22/10 the portal
+  answered 'Nhà cung cấp chưa tồn tại' and 'Hóa đơn sai MST người mua' for invoices that had
+  gone in fine before. Import one XML by hand to confirm, then tell the portal admin.
+- Invoice check without the seller status: the log no longer reads the status after the PDF,
+  so log and PDF always agree.
+
 1.3.2 (2026-10-22)
-- 'Tra tinh trang MST nguoi ban' is now unticked by default: the invoice check runs fast and
+- 'Tra tình trạng MST người bán' is now unticked by default: the invoice check runs fast and
   does not wait for the seller status. Tick it when the seller status is needed.
 
 1.3.1 (2026-10-22)
 - Invoice check: the seller tax status was sometimes logged as not read while the result PDF
   showed it. The check now waits for the seller line itself and reads it again after the PDF.
-- New tick 'Tra tinh trang MST nguoi ban' in step 1. Untick it to run faster without waiting
+- New tick 'Tra tình trạng MST người bán' in step 1. Untick it to run faster without waiting
   for the seller status; those invoices get no seller warning. The choice is remembered.
 
 1.3.0 (2026-10-15)
