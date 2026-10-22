@@ -1,6 +1,7 @@
 # Run Invoice Check on data\<Ten>\*.xml -> result PDFs + log.csv in data\<Ten>\check\,
 # then rebuild data\Check_Log.xlsx (everyone: valid or not, seller still active or not).
 # Only invoices WITHOUT a check PDF yet are checked (add --all to redo everything).
+# --no-tax: skip waiting for the seller's tax status (faster; Company = Skipped in the log).
 # Works around Invoice Check not handling Vietnamese paths: copies XML to a temp ASCII folder, runs
 # check-print.js --pdf there, then copies CheckResults\*.pdf + log.csv back.
 import sys, os, csv, glob, shutil, tempfile, subprocess
@@ -40,7 +41,7 @@ def pending(person, redo=False):
         return b in logged or any(f.startswith(s) and f.endswith(".pdf") for f in have)
     return [x for x in xmls if not done(x)]
 
-def check_all(people, redo=False):
+def check_all(people, redo=False, tax=True):
     """ONE Invoice Check run for everybody (one browser, shared parallel pool), then split results per person.
     Temp file names get a 'NN__' prefix = person index, so equal file names of 2 people never clash."""
     todo = {p: pending(p, redo) for p in people}
@@ -59,7 +60,8 @@ def check_all(people, redo=False):
         sys.stdout.flush()
         # stdout/stderr passed on purpose: without it the child writes to its own console
         # instead of our pipe, and the UI would show none of the Invoice Check output
-        subprocess.call([node, IC_JS, tmp, "--pdf", "--jobs", jobs], cwd=IC,
+        if not tax: print("  Seller tax status: not looked up (faster)")
+        subprocess.call([node, IC_JS, tmp, "--pdf", "--jobs", jobs] + ([] if tax else ["--no-tax"]), cwd=IC,
                         creationflags=NO_WINDOW, stdout=sys.stdout, stderr=subprocess.STDOUT)
         res = os.path.join(tmp, "CheckResults"); n = 0
         for f in os.listdir(res) if os.path.isdir(res) else []:
@@ -117,12 +119,12 @@ def write_summary():
 def main():
     if not os.path.exists(IC_JS):
         sys.exit(f"Invoice Check not found: {IC_JS}")
-    args = sys.argv[1:]; redo = "--all" in args
-    args = [a for a in args if a != "--all"]
+    args = sys.argv[1:]; redo = "--all" in args; tax = "--no-tax" not in args
+    args = [a for a in args if a not in ("--all", "--no-tax")]
     people = args or people_dirs()
     if not people: sys.exit("No person folder in data\\. Make one folder per person and drop the invoices in.")
     print("Invoice Check:")
-    total = check_all(people, redo)
+    total = check_all(people, redo, tax)
     probs = write_summary()
     print(f"Done. {total} new check PDF.")
     if probs:

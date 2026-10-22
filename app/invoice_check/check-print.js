@@ -12,6 +12,7 @@
  *   node check-print.js "D:\\Invoices" --jobs 8      (8 files in parallel)
  *   node check-print.js "D:\\Invoices" --printer "HPB3812A.lan (HP LaserJet Pro MFP 4103)"
  *   node check-print.js "D:\\Invoices" --simplex     (1-sided; default is 2-sided)
+ *   node check-print.js "D:\\Invoices" --no-tax      (don't wait for the seller tax status, faster)
  */
 const { chromium } = require('playwright-core'); // core = no browser download; uses system Edge
 const { execFileSync } = require('child_process');
@@ -82,9 +83,10 @@ function drawBar(label, done, total) {
 }
 
 function parseArgs() {
-  const a = process.argv.slice(2), o = { folder: null, printer: null, pdf: false, jobs: 5, jobsSet: false, simplex: false };
+  const a = process.argv.slice(2), o = { folder: null, printer: null, pdf: false, jobs: 5, jobsSet: false, simplex: false, tax: true };
   for (let i = 0; i < a.length; i++) {
     if (a[i] === '--pdf') o.pdf = true;
+    else if (a[i] === '--no-tax') o.tax = false;               // don't wait for the seller tax status (faster)
     else if (a[i] === '--simplex') o.simplex = true;           // 1-sided (default is 2-sided)
     else if (a[i] === '--printer') o.printer = a[++i];
     else if (a[i] === '--jobs') { o.jobs = parseInt(a[++i], 10) || 5; o.jobsSet = true; }
@@ -168,21 +170,36 @@ async function fetchResult(ctx, file) {
 }
 
 // ---------- open check-result page, read status, clean overlays ----------
-async function openResultPage(ctx, id) {
+async function openResultPage(ctx, id, tax) {
   const rp = await ctx.newPage();
-  try { return await readResultPage(rp, id); }
+  try { return await readResultPage(rp, id, tax); }
   catch (e) { await rp.close().catch(() => {}); throw e; }
 }
 
-async function readResultPage(rp, id) {
+// "TÌNH TRẠNG HOẠT ĐỘNG CỦA MST" -> "Người bán:" block -> "Trạng thái: ..." ('' while not loaded yet).
+// Only the SELLER line: the buyer (PVI) line often fills in first, so the whole page saying
+// "đang hoạt động" does not mean the seller has been read.
+function sellerStatus() {
+  const sec = document.body.innerText.split(/TÌNH TRẠNG HOẠT ĐỘNG CỦA MST/i)[1] || '';
+  const seller = (sec.split(/Người mua:/i)[0].split(/Người bán:/i)[1]) || '';
+  const m = seller.match(/Trạng thái:[ \t]*([^\n]*)/i);   // blank on the site -> '' -> Unknown, never the next line
+  return m ? m[1].trim() : '';
+}
+
+async function readTaxStatus(rp) {
+  return rp.evaluate(sellerStatus).catch(() => '');
+}
+
+async function readResultPage(rp, id, tax) {
   const url = `${SITE}#/xml-info?id=${id}&excludeTawk=Y`;
   await rp.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   // load up to 3x: if the tax-code (MST) section says "couldn't fetch" (GDT throttled), retry
   for (let attempt = 1; attempt <= 3; attempt++) {
     await rp.waitForFunction(() => /KẾT QUẢ KIỂM TRA/i.test(document.body.innerText), { timeout: 30000 });
     await rp.evaluate(() => document.fonts.ready).catch(() => {}); // ensure icon font (check marks)
-    await rp.waitForFunction(() => /(đang hoạt động|ngừng hoạt động)/i.test(document.body.innerText),
-      { timeout: 12000 }).catch(() => {});
+    if (!tax) break;   // --no-tax: print whatever the MST section shows, no waiting
+    await rp.waitForFunction(`(${sellerStatus})() !== '' || /Không lấy được thông tin mã số thuế/i.test(document.body.innerText)`,
+      null, { timeout: 15000 }).catch(() => {});
     const mstFail = await rp.evaluate(() => /Không lấy được thông tin mã số thuế/i.test(document.body.innerText));
     if (!mstFail || attempt === 3) break;
     await rp.waitForTimeout(1200 * attempt);
@@ -192,24 +209,21 @@ async function readResultPage(rp, id) {
   await hideWidgets(rp);
   // force background colors to print (green "Valid" badge, header fills) even on a real printer
   await rp.addStyleTag({ content: '@media print{html,body,*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}}' }).catch(() => {});
-  const { status, taxStatus } = await rp.evaluate(() => {
+  const status = await rp.evaluate(() => {
     const t = document.body.innerText;
-    // "TÌNH TRẠNG HOẠT ĐỘNG CỦA MST" -> "Người bán:" block -> "Trạng thái: ..."
-    const sec = t.split(/TÌNH TRẠNG HOẠT ĐỘNG CỦA MST/i)[1] || '';
-    const seller = (sec.split(/Người mua:/i)[0].split(/Người bán:/i)[1]) || '';
-    const m = seller.match(/Trạng thái:[ \t]*([^\n]*)/i);   // blank on the site -> '' -> Unknown, never the next line
-    return {
-      status: /Không hợp lệ/i.test(t) ? 'INVALID' : /Hợp lệ/i.test(t) ? 'VALID' : '?',
-      taxStatus: m ? m[1].trim() : '',
-    };
+    return /Không hợp lệ/i.test(t) ? 'INVALID' : /Hợp lệ/i.test(t) ? 'VALID' : '?';
   });
-  return { rp, status, taxStatus };
+  return { rp, status, taxStatus: await readTaxStatus(rp) };
 }
 
-function setResult(r, res) {
+function setResult(r, res, tax) {
   r.status = res.status;
-  r.taxStatus = res.taxStatus;
-  r.company = companyState(res.taxStatus);
+  setTax(r, res.taxStatus, tax);
+}
+
+function setTax(r, taxStatus, tax) {
+  r.taxStatus = taxStatus;
+  r.company = !taxStatus && !tax ? 'Skipped' : companyState(taxStatus);
 }
 
 // The support chat (Subiz "M-invoice Support", bottom right) draws itself again after being
@@ -302,10 +316,12 @@ async function savePdf(ctx, rp, outFile) {
     await runPool(results, async (r) => {
       if (!r.id) return;
       try {
-        const res = await openResultPage(ctx, r.id).catch(() => openResultPage(ctx, r.id)), rp = res.rp;
-        setResult(r, res);
+        const res = await openResultPage(ctx, r.id, opt.tax).catch(() => openResultPage(ctx, r.id, opt.tax)), rp = res.rp;
+        setResult(r, res, opt.tax);
         const out = path.join(outDir, `${path.basename(r.file, path.extname(r.file))}.pdf`);
         await savePdf(ctx, rp, out); r.out = out;
+        // the seller line can fill in while the PDF is made: read it again so log and PDF agree
+        if (!r.taxStatus) setTax(r, await readTaxStatus(rp), opt.tax);
         await rp.close();
       } catch (e) { r.status = 'ERROR'; r.note = e.message.split('\n')[0]; }
       drawBar('Export', ++d2, todo);
@@ -321,8 +337,8 @@ async function savePdf(ctx, rp, outFile) {
     for (const r of results) { // paper: sequential, in file order
       if (!r.id) continue;
       try {
-        const res = await openResultPage(ctx, r.id), rp = res.rp;
-        setResult(r, res);
+        const res = await openResultPage(ctx, r.id, opt.tax), rp = res.rp;
+        setResult(r, res, opt.tax);
         await rp.evaluate(() => window.print());
         await rp.waitForTimeout(2500);
         await rp.close();
@@ -341,8 +357,8 @@ async function savePdf(ctx, rp, outFile) {
   console.log(`\n= DONE ${secs}s | Valid ${ok}/${results.length} =`);
   results.filter(r => r.status !== 'VALID').forEach(r => console.log(`  ! ${r.file}: ${r.status} ${r.note}`));
   const act = results.filter(r => r.company === 'Active').length;
-  console.log(`= Seller company active ${act}/${results.length} =`);
-  results.filter(r => r.company !== 'Active').forEach(r =>
+  console.log(`= Seller company active ${act}/${results.length}${opt.tax ? '' : ' (status lookup skipped)'} =`);
+  results.filter(r => r.company !== 'Active' && r.company !== 'Skipped').forEach(r =>
     console.log(`  ! ${r.file}: ${r.company} - ${r.seller || '?'} (${r.sellerMst || '?'})${r.taxStatus ? ' - ' + r.taxStatus : ''}`));
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = '﻿File,Status,Seller,Seller tax ID,Company,Tax status,Output,Note\n' +

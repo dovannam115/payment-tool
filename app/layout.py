@@ -168,7 +168,7 @@ def check_problem(row):
     if st in ("ERROR","?"): return "chưa kiểm tra được (trang kiểm tra chậm), chạy lại bước Kiểm tra"
     if st!="VALID": out.append(f"hóa đơn {'không hợp lệ' if st=='INVALID' else st}")
     if row.get("Company")=="Inactive": out.append("người bán ngừng hoạt động"+(f" ({row['Tax status']})" if row.get("Tax status") else ""))
-    elif row.get("Company")!="Active": out.append("chưa đọc được tình trạng MST người bán, tra tay trên tracuunnt.gdt.gov.vn")
+    elif row.get("Company") not in ("Active","Skipped"): out.append("chưa đọc được tình trạng MST người bán, tra tay trên tracuunnt.gdt.gov.vn")
     return ", ".join(out)
 
 def done_names(person):

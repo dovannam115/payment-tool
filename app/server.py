@@ -181,8 +181,8 @@ class Runner:
 RUN = Runner()
 
 
-def step_check(names, redo):
-    args = list(names) + (["--all"] if redo else [])
+def step_check(names, redo, tax=True):
+    args = list(names) + (["--all"] if redo else []) + ([] if tax else ["--no-tax"])
     return [(PY + ["-u", os.path.join(APP, "check_invoices.py")] + args, {})]
 
 
@@ -685,7 +685,7 @@ class Handler(BaseHTTPRequestHandler):
             action = d.get("action"); names = d.get("names") or []
             if RUN.busy: return self.json({"error": "busy"}, 409)
             if action == "check":
-                job = Job(action, step_check(names, bool(d.get("redo"))), "Kiểm tra hóa đơn")
+                job = Job(action, step_check(names, bool(d.get("redo")), d.get("tax", True) is not False), "Kiểm tra hóa đơn")
             elif action == "fill":
                 job = Job(action, step_fill(names), "Điền đơn lên cổng")
             elif action == "archive":

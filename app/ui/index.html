@@ -238,6 +238,7 @@
         <div class="act">
           <button class="btn pri" id="b-check" onclick="run('check')">Kiểm tra</button>
           <label class="ck"><input type="checkbox" id="redo"> Kiểm tra lại cả HĐ đã có</label>
+          <label class="ck" title="Bỏ chọn để chạy nhanh hơn, không chờ tra tình trạng hoạt động của người bán"><input type="checkbox" id="tax" checked> Tra tình trạng MST người bán</label>
         </div>
       </div>
       <div class="card step">
@@ -385,6 +386,9 @@ const T = new URLSearchParams(location.search).get("t") || "";
 document.getElementById("logo").src = document.getElementById("ico").href;
 const $ = (id) => document.getElementById(id);
 let ST = {people:[]}, since = 0, polling = null, busy = false;
+// remember the "look up seller tax status" tick per machine
+try { if (localStorage.getItem("pt_tax") === "0") $("tax").checked = false; } catch (e) {}
+$("tax").onchange = () => { try { localStorage.setItem("pt_tax", $("tax").checked ? "1" : "0"); } catch (e) {} };
 
 let dead = 0;
 async function api(path, body){
@@ -556,7 +560,7 @@ async function run(action, extra){
         warn.map(p => p.name + ":\n  - " + p.warnings.join("\n  - ")).join("\n\n") +
         "\n\nVẫn điền đơn?")) return;
   }
-  const body = Object.assign({action, names, redo: $("redo").checked}, extra || {});
+  const body = Object.assign({action, names, redo: $("redo").checked, tax: $("tax").checked}, extra || {});
   $("out").textContent = "";
   since = 0;
   const r = await api("/api/run", body);
