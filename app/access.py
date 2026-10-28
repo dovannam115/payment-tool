@@ -2,6 +2,7 @@
 # so a machine can be allowed or cut off by pushing that one file, without a new version.
 #   enforce false -> everybody runs, each start is only reported (machine, Windows user, version)
 #   enforce true  -> only machines whose hash is in "allowed" can run a step
+#   "blocked"     -> machines locked either way (one PC can be cut off before the list is enforced)
 # A copy that cannot reach GitHub uses the newer ("rev") of dump\access_cache.json and app\access.json.
 import os, json, time, base64, socket, ctypes, hashlib, threading, urllib.parse, urllib.request
 
@@ -63,7 +64,8 @@ def _apply(j, source):
     m = machine()
     STATE.update(machine=m, user=user(), contact=j.get("contact", ""), source=source,
                  enforce=bool(j.get("enforce")))
-    STATE["ok"] = not STATE["enforce"] or key(m) in set(j.get("allowed") or [])
+    k = key(m)
+    STATE["ok"] = k not in set(j.get("blocked") or []) and (not STATE["enforce"] or k in set(j.get("allowed") or []))
 
 
 def _report(j, app, ver):
