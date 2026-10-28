@@ -1,5 +1,8 @@
 Payment Tool - release notes
 
+1.3.4 (2026-10-28)
+- Internal improvements to start-up and the update check.
+
 1.3.3 (2026-10-22)
 - 'Điền đơn lên cổng': when the portal rejects every invoice of a request, the log now says
   this usually means the portal itself is failing, not the invoices. On 22/10 the portal

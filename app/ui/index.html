@@ -519,11 +519,28 @@ function toggle(i, name){
   if(hid) shown.delete(name); else shown.add(name);
 }
 
+// machine not on the list in app\access.json (GitHub): cover the window, nothing else is shown
+let gated = false;
+function gate(a){
+  const old = $("gate");
+  if(!a || a.ok !== false){ if(old) old.remove(); return; }
+  const b = '<div class="modal"><div class="mh"><h2>Chưa được cấp quyền</h2></div><div class="mb">'
+    + '<div>Máy này chưa có trong danh sách được dùng tool.</div>'
+    + '<div>Tên máy: <b>' + esc(a.machine) + '</b><br>Tài khoản: ' + esc(a.user) + '</div>'
+    + (a.contact ? '<div>Gửi tên máy ở trên cho ' + esc(a.contact) + '.</div>' : '')
+    + '</div><div class="mf"><button class="btn" onclick="regate()">Kiểm tra lại</button></div></div>';
+  if(old){ old.innerHTML = b; return; }
+  const v = document.createElement("div"); v.id = "gate"; v.className = "veil"; v.style.zIndex = 99; v.innerHTML = b;
+  document.body.appendChild(v);
+}
+async function regate(){ gate(await api("/api/access?force=1")); }
+
 let lastPeople = "";
 async function load(){
   const s = await api("/api/state");
   if(s.error) return;
   ST = s;
+  if(!gated){ gated = true; api("/api/access").then(gate); } else gate(s.access);
   $("ver").textContent = "v" + s.version;
   $("curVer").textContent = "v" + s.version;
   const now = JSON.stringify(s.people);

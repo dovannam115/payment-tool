@@ -10,6 +10,7 @@ from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from layout import (APP, ROOT, DATA, DONE, PEOPLE, people_dirs, scan_full, read_check_log, check_problem,
                     done_names, pdf_text, pdf_kind)
+import access as A
 
 PORT    = 8711
 HOST    = "127.0.0.1"
@@ -439,7 +440,7 @@ def state():
             "has_input": os.path.exists(INPUT), "has_checklog": os.path.exists(CHECKLOG),
             "data_dir": DATA, "busy": RUN.busy,
             "job": ({"action": j.action, "label": j.label, "state": j.state} if j else None),
-            "update": UPD.get("cache")}
+            "update": UPD.get("cache"), "access": A.STATE}
 
 
 # ------------------------------------------------------------------ update from GitHub
@@ -634,6 +635,10 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/state":
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             return self.json(state())
+        if p == "/api/access":
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            if q.get("force", [""])[0] == "1": A.check("Payment Tool", version(), report=False)
+            return self.json(A.status())
         if p == "/api/job":
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             j = RUN.job
@@ -684,6 +689,8 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/run":
             action = d.get("action"); names = d.get("names") or []
             if RUN.busy: return self.json({"error": "busy"}, 409)
+            if action != "update" and not A.STATE["ok"]:
+                return self.json({"error": "Máy này chưa được cấp quyền dùng tool."}, 409)
             if action == "check":
                 job = Job(action, step_check(names, bool(d.get("redo")), d.get("tax", True) is not False), "Kiểm tra hóa đơn")
             elif action == "fill":
@@ -831,6 +838,7 @@ def main():
     SHUTDOWN.append(lambda: threading.Thread(target=srv.shutdown, daemon=True).start())
     log("listening on %s:%d  v%s" % (HOST, PORT, version()))
     threading.Thread(target=watchdog, daemon=True).start()
+    A.start("Payment Tool", version())
     threading.Thread(target=lambda: (time.sleep(1.5), update_check()), daemon=True).start()
     open_ui()
     try: srv.serve_forever()
