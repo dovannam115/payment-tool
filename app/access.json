@@ -1,7 +1,18 @@
 {
-  "rev": 1,
+  "rev": 2,
   "enforce": false,
   "allowed": [],
   "contact": "Nam (namdv1@pvi.com.vn)",
-  "report": {}
+  "report": {
+    "type": "gform",
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLScgeZXVHHXSqc8Ubm49j-bnKp2sinbV5rVm_5G_euHmTRoqPw/formResponse",
+    "fields": {
+      "machine": "entry.9988258",
+      "user": "entry.920357906",
+      "name": "entry.1964471979",
+      "app": "entry.388590144",
+      "version": "entry.2104536485",
+      "allowed": "entry.170096313"
+    }
+  }
 }
