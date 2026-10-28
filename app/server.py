@@ -690,7 +690,7 @@ class Handler(BaseHTTPRequestHandler):
             action = d.get("action"); names = d.get("names") or []
             if RUN.busy: return self.json({"error": "busy"}, 409)
             if action != "update" and not A.STATE["ok"]:
-                return self.json({"error": "Máy này chưa được cấp quyền dùng tool."}, 409)
+                return self.json({"error": "This PC is locked. Contact %s to unlock it." % (A.STATE["contact"] or "the tool owner")}, 409)
             if action == "check":
                 job = Job(action, step_check(names, bool(d.get("redo")), d.get("tax", True) is not False), "Kiểm tra hóa đơn")
             elif action == "fill":

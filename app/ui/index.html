@@ -524,11 +524,11 @@ let gated = false;
 function gate(a){
   const old = $("gate");
   if(!a || a.ok !== false){ if(old) old.remove(); return; }
-  const b = '<div class="modal"><div class="mh"><h2>Chưa được cấp quyền</h2></div><div class="mb">'
-    + '<div>Máy này chưa có trong danh sách được dùng tool.</div>'
-    + '<div>Tên máy: <b>' + esc(a.machine) + '</b><br>Tài khoản: ' + esc(a.user) + '</div>'
-    + (a.contact ? '<div>Gửi tên máy ở trên cho ' + esc(a.contact) + '.</div>' : '')
-    + '</div><div class="mf"><button class="btn" onclick="regate()">Kiểm tra lại</button></div></div>';
+  const b = '<div class="modal"><div class="mh"><h2>Access locked</h2></div><div class="mb">'
+    + '<div>This PC is not allowed to use Payment Tool yet.</div>'
+    + '<div>Machine: <b>' + esc(a.machine) + '</b><br>User: ' + esc(a.user) + '</div>'
+    + '<div>Please contact ' + esc(a.contact || "the tool owner") + ' to unlock it, and send the machine name above.</div>'
+    + '</div><div class="mf"><button class="btn" onclick="regate()">Check again</button></div></div>';
   if(old){ old.innerHTML = b; return; }
   const v = document.createElement("div"); v.id = "gate"; v.className = "veil"; v.style.zIndex = 99; v.innerHTML = b;
   document.body.appendChild(v);
