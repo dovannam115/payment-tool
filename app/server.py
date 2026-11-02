@@ -188,7 +188,7 @@ def step_check(names, redo, tax=True):
 
 
 def step_fill(names):
-    env = {"TB_WEB": "1"}
+    env = {"TB_WEB": "1", "TB_PROFILE": acc_profile(acc_current()["id"])}
     if names: env["TB_ONLY"] = ";".join(names)
     return [(PY + ["-u", os.path.join(APP, "build_input.py")], {}),
             (PY + ["-u", os.path.join(APP, "don_to_json.py")], {}),
@@ -200,7 +200,121 @@ def step_archive(names):
 
 
 def step_login():
-    return [([NODE, os.path.join(APP, "login.js")], {"TB_WEB": "1"})]
+    return [([NODE, os.path.join(APP, "login.js")],
+             {"TB_WEB": "1", "TB_PROFILE": acc_profile(acc_current()["id"])})]
+
+
+# ------------------------------------------------------------------ portal accounts
+# Each portal account has its own Edge profile, so every SSO session is kept and switching
+# accounts logs nobody out. The first account ("default") is the old .edge-profile, so the login
+# made before this feature carries on. The others live in app\dump\profiles\<id> (dump is kept by
+# install + update and left out of git and the zip).
+ACCFILE  = os.path.join(DUMP, "accounts.json")
+PROFILES = os.path.join(DUMP, "profiles")
+ACC_ID   = re.compile(r"default|a\d{1,4}")
+ACC_MAX  = 30
+ACC_LOCK = threading.RLock()   # reads too: on Windows os.replace fails while another thread has the file open
+
+
+def acc_profile(aid):
+    return os.path.join(ROOT, ".edge-profile") if aid == "default" else os.path.join(PROFILES, aid)
+
+
+def acc_name(raw):
+    """One line, no control characters, at most 60 characters."""
+    s = "".join(c if c.isprintable() else " " for c in str(raw if raw is not None else ""))
+    return re.sub(r"\s+", " ", s).strip()[:60]
+
+
+def acc_read():
+    with ACC_LOCK:
+        d = {}
+        try:
+            with open(ACCFILE, encoding="utf-8") as f: d = json.load(f)
+        except Exception: pass
+        if not isinstance(d, dict): d = {}
+        lst, seen = [], set()
+        for a in (d.get("list") if isinstance(d.get("list"), list) else []):
+            aid = str(a.get("id", "")) if isinstance(a, dict) else ""
+            if not ACC_ID.fullmatch(aid) or aid in seen: continue   # bad or repeated id: never two accounts on one profile
+            seen.add(aid)
+            lst.append({"id": aid, "name": acc_name(a.get("name")) or aid})
+        lst = lst[:ACC_MAX] or [{"id": "default", "name": "Tài khoản 1"}]
+        cur = d.get("current")
+        if cur not in [a["id"] for a in lst]: cur = lst[0]["id"]
+        return {"current": cur, "list": lst}
+
+
+def acc_write(d):
+    with ACC_LOCK:
+        os.makedirs(DUMP, exist_ok=True)
+        tmp = ACCFILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, ensure_ascii=False, indent=1)
+        for i in range(20):                    # antivirus / search indexer can hold the file a moment
+            try:
+                os.replace(tmp, ACCFILE); return
+            except PermissionError:
+                if i == 19: raise
+                time.sleep(0.05)
+
+
+def acc_current():
+    d = acc_read()
+    return next(a for a in d["list"] if a["id"] == d["current"])
+
+
+def acc_use(aid):
+    with ACC_LOCK:
+        d = acc_read()
+        if aid not in [a["id"] for a in d["list"]]: return {"error": "Không có tài khoản này"}
+        if d["current"] != aid:
+            d["current"] = aid; acc_write(d)
+        return d
+
+
+def acc_save(rows, current):
+    """rows = [{id, name}] in the order shown, id "" for a new account; current = index into rows.
+    An account left out is removed together with its Edge profile (its saved login)."""
+    if not isinstance(rows, list): return {"error": "Dữ liệu không hợp lệ"}
+    with ACC_LOCK:
+        old = acc_read()
+        old_ids = [a["id"] for a in old["list"]]
+        names, ids, out = set(), set(), []
+        for r in rows:
+            if not isinstance(r, dict): return {"error": "Dữ liệu không hợp lệ"}
+            name = acc_name(r.get("name"))
+            if not name: return {"error": "Tên tài khoản không được để trống"}
+            if name.casefold() in names: return {"error": "Trùng tên tài khoản: %s" % name}
+            names.add(name.casefold())
+            aid = str(r.get("id") or "")
+            aid = aid if aid in old_ids and aid not in ids else ""    # same id twice: the second is a new account
+            ids.add(aid)
+            out.append({"id": aid, "name": name})
+        if not out: return {"error": "Cần ít nhất 1 tài khoản"}
+        if len(out) > ACC_MAX: return {"error": "Tối đa %d tài khoản" % ACC_MAX}
+        # a new account never reuses the number of an old one, so it can't inherit a leftover profile
+        used = {int(x[1:]) for x in old_ids if x.startswith("a")}
+        if os.path.isdir(PROFILES):
+            used |= {int(x[1:]) for x in os.listdir(PROFILES) if re.fullmatch(r"a\d{1,4}", x)}
+        nxt = max(used | {1}) + 1
+        for a in out:
+            if not a["id"]: a["id"] = "a%d" % nxt; nxt += 1
+        notes = []
+        for aid in set(old_ids) - {a["id"] for a in out}:
+            p = acc_profile(aid)
+            if os.path.isdir(p):
+                try: shutil.rmtree(p)
+                except Exception as ex:
+                    log("account remove %s: %r" % (aid, ex))
+                    notes.append("Chưa xóa hết dữ liệu đăng nhập của tài khoản đã xóa (Edge còn mở?)")
+        try: i = int(current)
+        except Exception: i = -1
+        cur = out[i]["id"] if 0 <= i < len(out) else old["current"]
+        if cur not in [a["id"] for a in out]: cur = out[0]["id"]
+        d = {"current": cur, "list": out}
+        acc_write(d)
+        if notes: d["notes"] = sorted(set(notes))
+        return d
 
 
 # ------------------------------------------------------------------ state
@@ -440,7 +554,7 @@ def state():
             "has_input": os.path.exists(INPUT), "has_checklog": os.path.exists(CHECKLOG),
             "data_dir": DATA, "busy": RUN.busy,
             "job": ({"action": j.action, "label": j.label, "state": j.state} if j else None),
-            "update": UPD.get("cache"), "access": A.STATE}
+            "update": UPD.get("cache"), "access": A.STATE, "accounts": acc_read()}
 
 
 # ------------------------------------------------------------------ update from GitHub
@@ -704,8 +818,17 @@ class Handler(BaseHTTPRequestHandler):
                 job = job_update(d.get("mode") or "github", d.get("zip") or "")
             else:
                 return self.json({"error": "unknown action"}, 400)
+            if action in ("fill", "login"): job.put("Portal account: " + acc_current()["name"])
             RUN.start(job)
             return self.json({"ok": True})
+        if p == "/api/accounts":
+            # the fill / login step holds the current account's Edge profile while it runs
+            if RUN.busy: return self.json({"error": "Đang chạy một bước, chờ xong rồi đổi tài khoản"}, 409)
+            try:
+                r = acc_use(d.get("id")) if d.get("op") == "use" else acc_save(d.get("rows"), d.get("current"))
+            except Exception as ex:
+                log("accounts: %r" % ex); r = {"error": "Không lưu được tài khoản: %s" % ex}
+            return self.json(r, 400 if r.get("error") else 200)
         if p == "/api/answer":
             j = RUN.job
             return self.json({"ok": bool(j and j.answer(d.get("text") or ""))})

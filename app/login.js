@@ -5,7 +5,8 @@ const { chromium } = require("playwright-core");
 const path = require("path");
 
 const ROOT    = path.join(__dirname, "..");
-const PROFILE = path.join(ROOT, ".edge-profile");
+// TB_PROFILE = the Edge profile of the portal account picked in the app (one login per account)
+const PROFILE = process.env.TB_PROFILE || path.join(ROOT, ".edge-profile");
 const HOME    = "https://thanhtoannew.pvi.com.vn/#/";
 const FORM    = "https://thanhtoannew.pvi.com.vn/#/payment-requests/create?loai_ttoan=01";
 const WAIT_MIN = 10;

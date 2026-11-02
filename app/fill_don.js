@@ -1,7 +1,7 @@
 // Tool B - dien don de nghi thanh toan tren thanhtoannew.pvi.com.vn
 // Form Ant Design. Dieu khien GIAO DIEN (dien truong + import XML + dinh kem) nhu nguoi dung.
 // KHONG dung API. DUNG truoc khi bam "Luu" de ban tu kiem tra va luu.
-// Chay sau khi da dang nhap 1 lan (phien luu trong .edge-profile).
+// Chay sau khi da dang nhap 1 lan (phien luu trong profile Edge cua tai khoan dang chon).
 const { chromium } = require("playwright-core");
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +9,8 @@ const readline = require("readline");
 
 const URL = "https://thanhtoannew.pvi.com.vn/#/payment-requests/create?loai_ttoan=01";
 const ROOT = path.join(__dirname, "..");
-const PROFILE = path.join(ROOT, ".edge-profile");
+// TB_PROFILE = the Edge profile of the portal account picked in the app (one login per account)
+const PROFILE = process.env.TB_PROFILE || path.join(ROOT, ".edge-profile");
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const DUMP = path.join(__dirname, "dump");
 const DON = path.join(DUMP, "don.json");

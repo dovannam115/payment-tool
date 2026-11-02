@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.4.0 (2026-11-02)
+- Step 2 now has a portal account picker. Each account keeps its own login, so switching does not log anyone out.
+- The Accounts button adds, renames and removes accounts. A new account opens the portal to log in right away.
+
 1.3.6 (2026-10-28)
 - Internal improvements.
 
