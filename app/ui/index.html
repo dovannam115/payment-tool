@@ -207,6 +207,7 @@
   #accRows{display:flex; flex-direction:column; gap:8px}
   #accRows .grp{flex-wrap:nowrap}
   #accRows .grp .inp{flex:1 1 auto}
+  #accRows .grp select.unit{flex:0 0 auto; width:auto; cursor:pointer; color-scheme:dark}
   #accRows .grp.cur{border-color:var(--line2)}
 </style>
 </head>
@@ -659,14 +660,15 @@ async function poll(){
 async function answer(){ $("askBar").classList.add("hide"); await api("/api/answer", {text:""}); }
 
 /* ---------- portal accounts: one Edge profile (one saved login) per account ---------- */
-let ACC = {current:"", list:[]}, lastAcc = "", ACCROWS = [];
+let ACC = {current:"", list:[]}, lastAcc = "", ACCROWS = [], UNITS = ["PVI Digital", "PVI Connect"];
 function drawAcc(a){
   if(!a) return;
+  if(a.units && a.units.length) UNITS = a.units;
   const key = JSON.stringify(a);
   if(key === lastAcc) return;
   lastAcc = key; ACC = a;
   $("acc").innerHTML = a.list.map(x => '<option value="' + att(x.id) + '"' + (x.id === a.current ? " selected" : "") +
-                                       '>' + esc(x.name) + '</option>').join("");
+                                       '>' + esc(x.name) + ' · ' + esc(x.unit || UNITS[0]) + '</option>').join("");
 }
 async function useAcc(id){
   const r = await api("/api/accounts", {op:"use", id});
@@ -675,7 +677,7 @@ async function useAcc(id){
 }
 function openAcc(){
   if(busy) return;
-  ACCROWS = ACC.list.map(x => ({id:x.id, name:x.name}));
+  ACCROWS = ACC.list.map(x => ({id:x.id, name:x.name, unit:x.unit || UNITS[0]}));
   $("accMsg").textContent = "";
   drawAccRows();
   $("accVeil").classList.remove("hide");
@@ -687,15 +689,19 @@ function drawAccRows(){
     const g = document.createElement("div");
     g.className = "grp" + (r.id && r.id === ACC.current ? " cur" : "");
     g.innerHTML = '<input class="inp" placeholder="Tên hoặc email đăng nhập" value="' + att(r.name) + '">' +
+      '<select class="inp unit" title="Đơn vị chọn ở màn đăng nhập cổng">' +
+        UNITS.map(u => '<option' + (u === r.unit ? " selected" : "") + '>' + esc(u) + '</option>').join("") +
+      '</select>' +
       (r.id === ACC.current ? '<span class="meta">Đang dùng</span>' : '') +
       '<button class="btn sm gho"' + (ACCROWS.length < 2 ? " disabled" : "") + '>Xóa</button>';
     g.querySelector("input").oninput = (e) => { r.name = e.target.value; };
+    g.querySelector("select").onchange = (e) => { r.unit = e.target.value; };
     g.querySelector("button").onclick = () => { ACCROWS.splice(i, 1); drawAccRows(); };
     box.appendChild(g);
   });
 }
 function accAdd(){
-  ACCROWS.push({id:"", name:""});
+  ACCROWS.push({id:"", name:"", unit:UNITS[0]});
   drawAccRows();
   const ins = $("accRows").querySelectorAll("input");
   ins[ins.length - 1].focus();

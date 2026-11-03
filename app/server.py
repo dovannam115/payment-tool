@@ -74,6 +74,8 @@ class Job:
         self.started = time.time()
         self.proc = None
         self.stopped = False
+        # Edge windows open before a portal step, so the one playwright opens can be told apart
+        self.before = edge_windows() if action in ("fill", "login") else None
         self.lock = threading.Lock()
 
     def put(self, text):
@@ -97,6 +99,10 @@ class Job:
         if not text: return
         if ended_with_cr:
             with self.lock: self.progress = text
+            return
+        if text.startswith("[[FRONT]]"):          # the portal step wants its Edge window seen
+            if self.before is not None:
+                threading.Thread(target=raise_portal, args=(self.before,), daemon=True).start()
             return
         if text.startswith("[[ASK]]"):
             self.ask = text[7:].strip(); self.state = "waiting"
@@ -187,8 +193,14 @@ def step_check(names, redo, tax=True):
     return [(PY + ["-u", os.path.join(APP, "check_invoices.py")] + args, {})]
 
 
+def portal_env():
+    a = acc_current()
+    return {"TB_WEB": "1", "TB_PROFILE": acc_profile(a["id"]), "TB_UNIT": a["unit"],
+            "TB_UNITS_FILE": os.path.join(DUMP, "units.json")}
+
+
 def step_fill(names):
-    env = {"TB_WEB": "1", "TB_PROFILE": acc_profile(acc_current()["id"])}
+    env = portal_env()
     if names: env["TB_ONLY"] = ";".join(names)
     return [(PY + ["-u", os.path.join(APP, "build_input.py")], {}),
             (PY + ["-u", os.path.join(APP, "don_to_json.py")], {}),
@@ -200,8 +212,7 @@ def step_archive(names):
 
 
 def step_login():
-    return [([NODE, os.path.join(APP, "login.js")],
-             {"TB_WEB": "1", "TB_PROFILE": acc_profile(acc_current()["id"])})]
+    return [([NODE, os.path.join(APP, "login.js")], portal_env())]
 
 
 # ------------------------------------------------------------------ portal accounts
@@ -213,6 +224,7 @@ ACCFILE  = os.path.join(DUMP, "accounts.json")
 PROFILES = os.path.join(DUMP, "profiles")
 ACC_ID   = re.compile(r"default|a\d{1,4}")
 ACC_MAX  = 30
+UNITS    = ["PVI Digital", "PVI Connect"]   # Đơn vị on the portal login screen (under PVI Insurance)
 ACC_LOCK = threading.RLock()   # reads too: on Windows os.replace fails while another thread has the file open
 
 
@@ -224,6 +236,10 @@ def acc_name(raw):
     """One line, no control characters, at most 60 characters."""
     s = "".join(c if c.isprintable() else " " for c in str(raw if raw is not None else ""))
     return re.sub(r"\s+", " ", s).strip()[:60]
+
+
+def acc_unit(raw):
+    return raw if raw in UNITS else UNITS[0]
 
 
 def acc_read():
@@ -238,8 +254,8 @@ def acc_read():
             aid = str(a.get("id", "")) if isinstance(a, dict) else ""
             if not ACC_ID.fullmatch(aid) or aid in seen: continue   # bad or repeated id: never two accounts on one profile
             seen.add(aid)
-            lst.append({"id": aid, "name": acc_name(a.get("name")) or aid})
-        lst = lst[:ACC_MAX] or [{"id": "default", "name": "Tài khoản 1"}]
+            lst.append({"id": aid, "name": acc_name(a.get("name")) or aid, "unit": acc_unit(a.get("unit"))})
+        lst = lst[:ACC_MAX] or [{"id": "default", "name": "Tài khoản 1", "unit": UNITS[0]}]
         cur = d.get("current")
         if cur not in [a["id"] for a in lst]: cur = lst[0]["id"]
         return {"current": cur, "list": lst}
@@ -289,7 +305,7 @@ def acc_save(rows, current):
             aid = str(r.get("id") or "")
             aid = aid if aid in old_ids and aid not in ids else ""    # same id twice: the second is a new account
             ids.add(aid)
-            out.append({"id": aid, "name": name})
+            out.append({"id": aid, "name": name, "unit": acc_unit(r.get("unit"))})
         if not out: return {"error": "Cần ít nhất 1 tài khoản"}
         if len(out) > ACC_MAX: return {"error": "Tối đa %d tài khoản" % ACC_MAX}
         # a new account never reuses the number of an old one, so it can't inherit a leftover profile
@@ -313,6 +329,7 @@ def acc_save(rows, current):
         if cur not in [a["id"] for a in out]: cur = out[0]["id"]
         d = {"current": cur, "list": out}
         acc_write(d)
+        d = dict(d, units=UNITS)
         if notes: d["notes"] = sorted(set(notes))
         return d
 
@@ -554,7 +571,7 @@ def state():
             "has_input": os.path.exists(INPUT), "has_checklog": os.path.exists(CHECKLOG),
             "data_dir": DATA, "busy": RUN.busy,
             "job": ({"action": j.action, "label": j.label, "state": j.state} if j else None),
-            "update": UPD.get("cache"), "access": A.STATE, "accounts": acc_read()}
+            "update": UPD.get("cache"), "access": A.STATE, "accounts": dict(acc_read(), units=UNITS)}
 
 
 # ------------------------------------------------------------------ update from GitHub
@@ -887,6 +904,59 @@ def app_windows(title="Payment Tool"):
         return True
     u32.EnumWindows(proto(cb), 0)
     return hits
+
+
+def edge_windows():
+    """Visible top-level Edge/Chromium windows except the app's own window."""
+    if os.name != "nt": return set()
+    u32 = ctypes.windll.user32
+    proto = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    u32.GetWindow.restype = ctypes.c_void_p; u32.GetWindow.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+    hits = set()
+    def cb(hwnd, _):
+        if not u32.IsWindowVisible(hwnd) or u32.GetWindow(hwnd, 4): return True    # 4 = GW_OWNER
+        cls = ctypes.create_unicode_buffer(64); u32.GetClassNameW(hwnd, cls, 64)
+        if cls.value != "Chrome_WidgetWin_1": return True
+        n = u32.GetWindowTextLengthW(hwnd)
+        if not n: return True
+        buf = ctypes.create_unicode_buffer(n + 1); u32.GetWindowTextW(hwnd, buf, n + 1)
+        if buf.value != "Payment Tool": hits.add(hwnd)
+        return True
+    u32.EnumWindows(proto(cb), 0)
+    return hits
+
+
+def raise_portal(before, wait=8):
+    """Bring the Edge window of the fill / login step in front of the app window, so the user
+    watches the form being filled. Windows only lets the foreground app take focus, so the window
+    is put on top first (always works), then focus is asked for through the foreground thread."""
+    if os.name != "nt": return
+    u32 = ctypes.windll.user32
+    for f in ("SetWindowPos", "ShowWindow", "IsIconic", "SetForegroundWindow", "BringWindowToTop",
+              "GetWindowThreadProcessId"):
+        getattr(u32, f).argtypes = None
+    u32.GetForegroundWindow.restype = ctypes.c_void_p
+    end = time.time() + wait
+    while time.time() < end:
+        new = edge_windows() - before
+        if new:
+            for h in new:
+                hw = ctypes.c_void_p(h)
+                try:
+                    if u32.IsIconic(hw): u32.ShowWindow(hw, 9)                       # SW_RESTORE
+                    flags = 0x0001 | 0x0002 | 0x0040                                 # NOSIZE|NOMOVE|SHOWWINDOW
+                    u32.SetWindowPos(hw, ctypes.c_void_p(-1), 0, 0, 0, 0, flags)    # HWND_TOPMOST
+                    u32.SetWindowPos(hw, ctypes.c_void_p(-2), 0, 0, 0, 0, flags)    # back to normal
+                    fg = u32.GetForegroundWindow()
+                    me = ctypes.windll.kernel32.GetCurrentThreadId()
+                    other = u32.GetWindowThreadProcessId(ctypes.c_void_p(fg), None) if fg else 0
+                    if other and other != me: u32.AttachThreadInput(me, other, True)
+                    u32.BringWindowToTop(hw); u32.SetForegroundWindow(hw)
+                    if other and other != me: u32.AttachThreadInput(me, other, False)
+                except Exception as ex:
+                    log("raise_portal: %r" % ex)
+            return
+        time.sleep(0.3)
 
 
 def maximize_window(before, wait=20):

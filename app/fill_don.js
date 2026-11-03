@@ -293,7 +293,7 @@ function label(d){ const f=d.fields||{}; const n=(d.xml||[]).length;
     dons.forEach((d,i)=>console.log(`   ${i+1}. ${label(d)}`));
   }
   const ctx=await chromium.launchPersistentContext(PROFILE,{headless:AUTO,channel:"msedge",viewport:null,args:["--start-maximized"]});
-  const page=ctx.pages()[0]||await ctx.newPage();
+  let page=ctx.pages()[0]||await ctx.newPage();
   // close any extra blank pages so only the working one is visible
   for(const p of ctx.pages()){ if(p!==page && (p.url()==="about:blank"||p.url()==="")) await p.close().catch(()=>{}); }
   console.log(`\n=== Tool B - ${dons.length} request(s)${AUTO?" [AUTO]":""} ===`);
@@ -302,16 +302,15 @@ function label(d){ const f=d.fields||{}; const n=(d.xml||[]).length;
   for(let i=0;i<dons.length;i++){
     const d=dons[i]; const F=d.fields||{};
     await page.bringToFront().catch(()=>{});
-    await page.goto(URL,{waitUntil:"domcontentloaded"}).catch(()=>{});
-    const { waitForLogin, formLoaded, HOME } = require("./login.js");
-    const ok=await formLoaded(page, 30000);
-    if(!ok && !AUTO){
-      // not logged in: show the login page, wait for the user, then carry on by itself (no Enter needed)
-      console.log("[[LOGIN]] Portal not logged in. Log in in the Edge window, the tool goes on by itself.");
-      await page.goto(HOME,{waitUntil:"domcontentloaded"}).catch(()=>{});
-      await page.bringToFront().catch(()=>{});
-      if(!await waitForLogin(ctx, page, 10)){ console.log("  Still not logged in -> stopping here."); break; }
-      console.log("  Logged in, going on.");
+    if(AUTO){
+      await page.goto(URL,{waitUntil:"domcontentloaded"}).catch(()=>{});
+    } else {
+      // opens the form; not logged in (or logged in to another Đơn vị than the account's) -> the login
+      // screen is filled with the account's unit, the user finishes SSO, then it carries on by itself
+      const { ensureForm } = require("./login.js");
+      const p=await ensureForm(ctx, page, 10);
+      if(!p){ console.log("  Still not logged in -> stopping here."); break; }
+      page=p;
     }
     const rep=[];
     const T = async (label, fn) => { const s=Date.now(); let r; try{ r=await fn(); }catch(e){ r="ERR:"+e.message; } return `  ${label.padEnd(16)}: ${r}  [${Date.now()-s}ms]`; };

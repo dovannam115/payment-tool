@@ -1,5 +1,11 @@
 Payment Tool - release notes
 
+1.4.1 (2026-11-03)
+- Each portal account now has a unit (PVI Digital or PVI Connect), set in the Accounts window.
+- On the portal login screen the tool picks PVI Insurance, the account's unit and this year by itself.
+- When the saved login belongs to the other unit, the tool logs in again to the right one before filling.
+- The Edge window comes to the front while requests are filled, so every step can be watched.
+
 1.4.0 (2026-11-02)
 - Step 2 now has a portal account picker. Each account keeps its own login, so switching does not log anyone out.
 - The Accounts button adds, renames and removes accounts. A new account opens the portal to log in right away.
