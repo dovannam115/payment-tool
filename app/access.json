@@ -1,8 +1,10 @@
 {
-  "rev": 4,
+  "rev": 5,
   "enforce": false,
   "allowed": [],
-  "blocked": [],
+  "blocked": [
+    "ebdd55eb6c6b3fba3d3ead18f18ed39db7752846d1bd39ac56be41040ee33e9f"
+  ],
   "contact": "Nam (namdv1@pvi.com.vn)",
   "report": {
     "type": "gform",
