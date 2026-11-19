@@ -1,5 +1,8 @@
 Payment Tool - release notes
 
+1.4.4 (2026-11-19)
+- 'Nam Doo' stays in the app name only; the sidebar and version line inside the tool no longer show it.
+
 1.4.3 (2026-11-19)
 - New name: Payment Tool - Nam Doo. The Desktop and Start menu shortcuts are renamed on the next start.
 
