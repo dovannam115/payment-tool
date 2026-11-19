@@ -24,6 +24,7 @@ INPUT   = os.path.join(DATA, "Request_Input.xlsx")
 CHECKLOG= os.path.join(DATA, "Check_Log.xlsx")
 GUIDE   = os.path.join(ROOT, "Operating_Guide.html")
 BAT     = os.path.join(ROOT, "Payment Tool.bat")
+NAME    = "Payment Tool - Nam Doo"
 DIAG    = "--diag" in sys.argv
 
 PY   = [sys.executable] if sys.executable else ["py", "-3.12"]
@@ -42,7 +43,24 @@ def log(msg):
     except Exception: pass
 
 
-def box(msg, title="Payment Tool"):
+OLD_NAME = "Payment Tool"
+
+def rename_old_shortcut():
+    """The app used to be called OLD_NAME: rename its Desktop and Start menu shortcuts to NAME (once)."""
+    try:
+        buf = ctypes.create_unicode_buffer(260)
+        for csidl in (0x10, 0x02):                # Desktop, Start menu Programs
+            if ctypes.windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buf) != 0: continue
+            old = os.path.join(buf.value, OLD_NAME + ".lnk"); new = os.path.join(buf.value, NAME + ".lnk")
+            if os.path.exists(old):
+                if os.path.exists(new): os.remove(old)
+                else: os.rename(old, new)
+    except Exception as ex:
+        log("rename shortcut: %r" % ex)
+
+
+
+def box(msg, title=NAME):
     """Fatal error popup: pythonw has no console, so a message box is the only way to be seen."""
     if DIAG: print(msg, flush=True); return
     try: ctypes.windll.user32.MessageBoxW(0, str(msg), title, 0x10)
@@ -892,7 +910,7 @@ def restart():
     threading.Timer(0.5, lambda: SHUTDOWN and SHUTDOWN[0]()).start()
 
 
-def app_windows(title="Payment Tool"):
+def app_windows(title=NAME):
     """Visible top-level windows with this exact title (Edge --app windows carry the page <title>)."""
     if os.name != "nt": return set()
     u32 = ctypes.windll.user32
@@ -922,7 +940,7 @@ def edge_windows():
         n = u32.GetWindowTextLengthW(hwnd)
         if not n: return True
         buf = ctypes.create_unicode_buffer(n + 1); u32.GetWindowTextW(hwnd, buf, n + 1)
-        if buf.value != "Payment Tool": hits.add(hwnd)
+        if buf.value != NAME: hits.add(hwnd)
         return True
     u32.EnumWindows(proto(cb), 0)
     return hits
@@ -1034,6 +1052,7 @@ def main():
     log("listening on %s:%d  v%s" % (HOST, PORT, version()))
     threading.Thread(target=watchdog, daemon=True).start()
     A.start("Payment Tool", version())
+    threading.Thread(target=rename_old_shortcut, daemon=True).start()
     threading.Thread(target=lambda: (time.sleep(1.5), update_check()), daemon=True).start()
     open_ui()
     try: srv.serve_forever()
