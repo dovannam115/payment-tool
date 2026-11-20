@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from layout import (APP, ROOT, DATA, DONE, PEOPLE, people_dirs, scan_full, read_check_log, check_problem,
                     done_names, pdf_text, pdf_kind)
 import access as A
+import slip as SL
 
 PORT    = 8711
 HOST    = "127.0.0.1"
@@ -803,6 +804,19 @@ class Handler(BaseHTTPRequestHandler):
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             names, listed = known_names()
             return self.json({"names": names, "listed": sorted(listed)})
+        if p == "/api/slips":
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            names = [n for n in q.get("n", []) if n in people_dirs()] or people_dirs()
+            try:
+                return self.json({"people": [SL.form(n) for n in names], "depts": SL.DEPTS,
+                                  "topics": SL.TOPICS, "products": SL.products(), "customers": SL.customers()})
+            except Exception as ex:
+                log("slips: %r" % ex); return self.json({"error": str(ex)}, 500)
+        if p == "/api/list":
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            k = q.get("k", [""])[0]
+            if k not in SL.LISTS: return self.json({"error": "unknown list"}, 400)
+            return self.json({"items": SL.get_list(k)})
         if p == "/api/people":
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             try: return self.json(people_read())
@@ -812,6 +826,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urlparse(self.path); q = parse_qs(u.query); p = u.path
         if not self.ok_token(q): return self.json({"error": "token"}, 403)
+        if p in ("/api/customers", "/api/list/import"):
+            # raw .xlsx in the body: the customer list (or ?k=prod the product list) replaces the saved one
+            k = "cust" if p == "/api/customers" else q.get("k", [""])[0]
+            if k not in SL.LISTS: return self.json({"error": "unknown list"}, 400)
+            try: n = int(self.headers.get("Content-Length") or 0)
+            except ValueError: n = 0
+            if not n or n > 30 * 1024 * 1024: return self.json({"error": "File rỗng hoặc quá lớn"}, 400)
+            try:
+                items = SL.import_list(k, self.rfile.read(n))
+                return self.json({"count": len(items), "items": items, "customers": SL.customers()})
+            except Exception as ex:
+                log("list import: %r" % ex); return self.json({"error": "Không đọc được file: %s" % ex}, 400)
         if p == "/api/upload":
             # raw file bytes in the body; person / file name / subfolder in the query string
             try: n = int(self.headers.get("Content-Length") or 0)
@@ -828,6 +854,21 @@ class Handler(BaseHTTPRequestHandler):
             try: return self.json(people_write(d.get("rows") or []))
             except Exception as ex:
                 log("people save: %r" % ex); return self.json({"error": str(ex)}, 500)
+        if p == "/api/list":
+            k = d.get("k")
+            if k not in SL.LISTS or not isinstance(d.get("items"), list): return self.json({"error": "bad request"}, 400)
+            try: return self.json({"items": SL.save_list(k, d["items"])})
+            except Exception as ex:
+                log("list save: %r" % ex); return self.json({"error": str(ex)}, 500)
+        if p == "/api/slips":
+            out = []
+            for pp in d.get("people") or []:
+                n = pp.get("name")
+                if n not in people_dirs(): continue
+                try: out.append(SL.make(n, pp.get("dept"), pp.get("rows") or []))
+                except Exception as ex:
+                    log("slip %s: %r" % (n, ex)); out.append({"name": n, "bad": [], "error": str(ex)})
+            return self.json({"results": out})
         if p == "/api/mkdir":
             return self.json(make_dirs(d.get("names") or []))
         if p == "/api/tidy":
