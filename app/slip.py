@@ -1,8 +1,8 @@
 # Step 3: the client-meeting approval slips (Giấy đề nghị duyệt chi phí tiếp khách hàng), one per invoice,
 # all of a person's slips in one Word file: data\<person>\to_trinh\To_Trinh_<Name>_<YYYYMMDD>.docx.
 # What the user typed is kept in data\<person>\to_trinh\input.json, so the window opens with it next time.
-import os, re, io, json, base64, zipfile, datetime as dt, unicodedata
-from layout import DATA, DUMP, scan
+import os, re, io, json, glob, base64, zipfile, datetime as dt, unicodedata
+from layout import DATA, DONE, DUMP, scan, people_dirs
 
 import slip_tpl as TPL
 
@@ -10,10 +10,12 @@ DEPTS = ["Phòng Kinh doanh gia tăng (Upselling)", "Phòng Bancassurance and On
 
 
 def fix_dept(d):
-    """input.json saved before 20/11/2026 may hold the name without 'Phòng'."""
+    """input.json saved before 20/11/2026 may hold the name without 'Phòng'; a department taken off the list
+    falls back to the first one."""
+    names = depts()
     d = str(d or "").strip()
-    if d and d not in DEPTS and "Phòng " + d in DEPTS: d = "Phòng " + d
-    return d if d in DEPTS else DEPTS[0]
+    if d and d not in names and "Phòng " + d in names: d = "Phòng " + d
+    return d if d in names else names[0]
 HOST = "Lãnh đạo phòng và Chuyên viên"
 # the wordings of the sample slips; {sp} = the products. The text made from them can still be edited freely.
 TOPICS = ["Trao đổi về các yêu cầu & chào phí đơn {sp}.",
@@ -51,7 +53,9 @@ PRODUCTS = [
 
 # ------------------------------------------------------------------ customer list
 PRODUCTS_FILE = os.path.join(DUMP, "products.json")
-LISTS = {"cust": (CUSTOMERS, "Tên khách hàng"), "prod": (PRODUCTS_FILE, "Tên sản phẩm")}
+DEPTS_FILE = os.path.join(DUMP, "depts.json")
+LISTS = {"cust": (CUSTOMERS, "Tên khách hàng"), "prod": (PRODUCTS_FILE, "Tên sản phẩm"), "dept": (DEPTS_FILE, "Tên phòng")}
+DEFAULTS = {"prod": PRODUCTS, "dept": DEPTS}
 
 
 def clean(names):
@@ -63,11 +67,11 @@ def clean(names):
 
 
 def get_list(kind):
-    """The customer list starts empty (imported per machine); the product list starts from PRODUCTS."""
+    """The customer list starts empty (imported per machine); products and departments start from the built-in lists."""
     try:
         with open(LISTS[kind][0], encoding="utf-8") as f: return json.load(f)
     except Exception:
-        return list(PRODUCTS) if kind == "prod" else []
+        return list(DEFAULTS.get(kind, []))
 
 
 def save_list(kind, names):
@@ -101,6 +105,7 @@ def import_list(kind, data):
 def import_customers(data): return len(import_list("cust", data))
 def customers(): return get_list("cust")
 def products(): return get_list("prod")
+def depts(): return get_list("dept") or list(DEPTS)
 
 
 # ------------------------------------------------------------------ dates and money
@@ -254,7 +259,64 @@ def build(person, dept, rows):
     return path
 
 
-def make(person, dept, rows_in):
+# ------------------------------------------------------------------ one customer per department and month
+# Two different people of the same department may not meet the same customer in the same month (the month of
+# the invoice). Checked against the people being made, the other people in data\ (what they saved) and the
+# people already moved to done\ (Hoàn tất). The same person meeting a customer twice is fine.
+def month_of(r):
+    d = parse(r.get("ngay")) or parse(r.get("tu"))
+    return "%02d/%d" % (d.month, d.year) if d else ""
+
+
+def key(s): return " ".join(str(s or "").split()).casefold()
+
+
+def records(skip):
+    """(person, dept, month, customer, finished) of every saved slip outside the people in skip."""
+    out = []
+    srcs = [(p, os.path.join(folder(p), "input.json"), False) for p in people_dirs() if p not in skip]
+    srcs += [(os.path.basename(os.path.dirname(os.path.dirname(f))), f, True)
+             for f in glob.glob(os.path.join(DONE, "*", "*", "to_trinh", "input*.json"))]
+    for person, f, fin in srcs:
+        try:
+            with open(f, encoding="utf-8") as fh: d = json.load(fh)
+        except Exception: continue
+        dept = fix_dept(d.get("dept"))
+        for r in d.get("rows") or []:
+            if str(r.get("kh") or "").strip() and month_of(r):
+                out.append((person, dept, month_of(r), r["kh"].strip(), fin))
+    return out
+
+
+def taken(skip):
+    """For the window: customers other people of each department already have, so Ngẫu nhiên can avoid them."""
+    return [{"name": p, "dept": d, "month": m, "kh": k} for p, d, m, k, _ in records(set(skip))]
+
+
+def clashes(people):
+    """people: [{name, dept, rows}] being made. {(name, xml): [problem]} for each slip whose customer another
+    person of the same department already has in that month."""
+    mine = []
+    for pp in people:
+        invs, _ = scan(pp["name"])
+        day = {os.path.basename(iv["xml"]): inv_date(iv) for iv in invs}
+        dept = fix_dept(pp.get("dept"))
+        for r in pp.get("rows") or []:
+            d = day.get(r.get("xml"))
+            if d and str(r.get("kh") or "").strip():
+                mine.append((pp["name"], dept, "%02d/%d" % (d.month, d.year), r["kh"].strip(), r["xml"]))
+    others = records({pp["name"] for pp in people})
+    out = {}
+    for name, dept, m, kh, xml in mine:
+        hit = sorted({p + (" (đã hoàn tất)" if fin else "") for p, d2, m2, k2, fin in others
+                      if p != name and d2 == dept and m2 == m and key(k2) == key(kh)} |
+                     {p for p, d2, m2, k2, _ in mine if p != name and d2 == dept and m2 == m and key(k2) == key(kh)})
+        if hit:
+            out[(name, xml)] = ["khách hàng trùng với %s, cùng phòng trong tháng %s" % (", ".join(hit), m)]
+    return out
+
+
+def make(person, dept, rows_in, clash=None):
     """Check every slip, save what was typed (even with problems), build the file when all are right."""
     invs, _ = scan(person)
     by = {os.path.basename(iv["xml"]): iv for iv in invs}
@@ -264,12 +326,13 @@ def make(person, dept, rows_in):
         iv = by.get(r.get("xml"))
         if not iv: continue
         r = {k: r.get(k) for k in ("xml", "kh", "sp", "topic", "nd", "khach", "tu", "den", "lap", "cp")}
+        if inv_date(iv): r["ngay"] = vn(inv_date(iv))          # the month the one-customer rule counts in
         r["nd"] = " ".join(str(r["nd"] or "").split())
         if not str(r["khach"] or "").strip(): r["khach"] = str(guests(inv_total(iv)))
         r["kh"] = " ".join(str(r["kh"] or "").split())
         r["sp"] = [p for p in (r["sp"] or []) if isinstance(p, str) and p]
         rows.append(r)
-        p = problems(r, inv_total(iv), inv_date(iv), names)
+        p = problems(r, inv_total(iv), inv_date(iv), names) + (clash or {}).get((person, r["xml"]), [])
         if p: bad.append({"xml": r["xml"], "so": iv["sh"], "problems": p})
     dept = fix_dept(dept)
     os.makedirs(folder(person), exist_ok=True)
