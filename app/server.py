@@ -808,7 +808,7 @@ class Handler(BaseHTTPRequestHandler):
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             names = [n for n in q.get("n", []) if n in people_dirs()] or people_dirs()
             try:
-                return self.json({"people": [SL.form(n) for n in names], "depts": SL.DEPTS,
+                return self.json({"people": [SL.form(n) for n in names], "depts": SL.depts(), "taken": SL.taken(names),
                                   "topics": SL.TOPICS, "products": SL.products(), "customers": SL.customers()})
             except Exception as ex:
                 log("slips: %r" % ex); return self.json({"error": str(ex)}, 500)
@@ -862,10 +862,13 @@ class Handler(BaseHTTPRequestHandler):
                 log("list save: %r" % ex); return self.json({"error": str(ex)}, 500)
         if p == "/api/slips":
             out = []
-            for pp in d.get("people") or []:
+            ppl = [pp for pp in d.get("people") or [] if pp.get("name") in people_dirs()]
+            try: clash = SL.clashes(ppl)
+            except Exception as ex:
+                log("slip clashes: %r" % ex); return self.json({"error": "Không kiểm được trùng khách: %s" % ex}, 500)
+            for pp in ppl:
                 n = pp.get("name")
-                if n not in people_dirs(): continue
-                try: out.append(SL.make(n, pp.get("dept"), pp.get("rows") or []))
+                try: out.append(SL.make(n, pp.get("dept"), pp.get("rows") or [], clash))
                 except Exception as ex:
                     log("slip %s: %r" % (n, ex)); out.append({"name": n, "bad": [], "error": str(ex)})
             return self.json({"results": out})
