@@ -182,6 +182,25 @@
   .grp .meta{color:var(--muted); font-size:12.5px; white-space:nowrap}
   .grp .nh{flex-basis:100%; font-size:12px; color:var(--muted)}
   .grp .nh.new{color:var(--warn)}
+  .slipp{border-top:1px solid var(--line); padding-top:12px}
+  .slipp:first-child{border-top:0; padding-top:0}
+  .sliph{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px}
+  .sliph b{font-size:14px}
+  .slipr{background:var(--elev); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px}
+  .slipr.bad{border-color:rgba(248,113,113,.55)}
+  .slipr .top{font-size:12.5px; color:var(--muted); margin-bottom:8px}
+  .slipr .top b{color:var(--fg); font-weight:600}
+  .sg{display:grid; grid-template-columns:110px 1fr; gap:6px 10px; align-items:center; font-size:12.5px}
+  .sg > span{color:var(--muted)}
+  .sg .inp{width:100%; min-width:0}
+  .srow{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .srow .inp{width:auto; flex:0 1 120px}
+  .chips{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+  .chip{background:var(--hover); border-radius:999px; padding:2px 4px 2px 10px; font-size:12px; display:inline-flex; align-items:center; gap:4px}
+  .chip button{background:none; border:0; color:var(--muted); cursor:pointer; font-size:13px; padding:0 4px}
+  .chips .inp{flex:1 1 200px}
+  .slipr .errs{color:var(--bad); font-size:12px; margin-top:8px}
+  textarea.inp{resize:vertical; font:inherit; line-height:1.4}
   .res{font-size:12.5px; color:var(--muted)}
   .res div{padding:1px 0}
   .res .w{color:var(--warn)}
@@ -217,6 +236,8 @@
   <nav>
     <button id="nav-work" class="on" onclick="go('work')">Nhập đơn</button>
     <button id="nav-ppl" onclick="go('ppl')">Danh sách người</button>
+    <button id="nav-cust" onclick="go('cust')">Danh sách khách hàng</button>
+    <button id="nav-prod" onclick="go('prod')">Danh sách sản phẩm</button>
     <button id="nav-guide" onclick="go('guide')">Hướng dẫn</button>
     <button id="nav-upd" onclick="go('upd')">Cập nhật<span class="dot" id="updDot"></span></button>
   </nav>
@@ -259,7 +280,11 @@
           <button class="btn gho sm" onclick="run('login')">Đăng nhập cổng</button></div>
       </div>
       <div class="card step">
-        <div><div class="no">Bước 3</div><h2>Hoàn tất</h2></div>
+        <div><div class="no">Bước 3</div><h2>Tờ trình tiếp khách</h2></div>
+        <div class="act"><button class="btn pri" id="b-slip" onclick="openSlip()">Tạo tờ trình</button></div>
+      </div>
+      <div class="card step">
+        <div><div class="no">Bước 4</div><h2>Hoàn tất</h2></div>
         <div class="act"><button class="btn" id="b-arch" onclick="run('archive')">Hoàn tất</button></div>
       </div>
     </div>
@@ -329,6 +354,28 @@
       </div>
     </div>
   </div>
+
+  <!-- ============ customer / product lists ============ -->
+  <div class="wrap hide" id="v-lst">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;margin-bottom:10px">
+        <input class="inp" id="lq" placeholder="Tìm" style="flex:0 1 280px" oninput="drawLst()">
+        <span class="res" id="lcount"></span>
+        <div class="sp" style="flex:1"></div>
+        <button class="btn sm gho" onclick="addLst()">Thêm</button>
+        <button class="btn sm gho" onclick="$('lpick').click()">Nạp từ Excel</button>
+        <button class="btn sm pri" id="b-lsave" onclick="saveLst()" disabled>Lưu</button>
+      </div>
+      <div class="tablewrap">
+      <table class="ptab">
+        <thead><tr><th id="lhead">Tên</th><th style="width:60px"></th></tr></thead>
+        <tbody id="lrows"></tbody>
+      </table>
+      </div>
+      <div class="res" id="lmsg" style="margin-top:10px"></div>
+    </div>
+  </div>
+  <input type="file" id="lpick" accept=".xlsx" class="hide">
 
   <!-- ============ guide ============ -->
   <div class="wrap hide" id="v-guide">
@@ -404,6 +451,23 @@
     </div>
   </div>
 </div>
+<!-- ============ approval slips ============ -->
+<div class="veil hide" id="slipVeil">
+  <div class="modal" style="width:min(980px,100%)">
+    <div class="mh"><h2>Tờ trình tiếp khách</h2></div>
+    <div class="mb" id="slipBody"></div>
+    <div class="mf">
+      <span class="res" id="slipMsg" style="margin-right:auto"></span>
+      <button class="btn sm gho" onclick="$('cpick').click()">Nạp danh mục khách hàng</button>
+      <button class="btn" onclick="randomSlip()" title="Chọn khách hàng và sản phẩm ngẫu nhiên từ danh mục cho mọi tờ trình, bấm lại để đổi">Ngẫu nhiên</button>
+      <button class="btn" onclick="closeSlip()">Đóng</button>
+      <button class="btn pri" id="b-slipgo" onclick="saveSlip()">Tạo file Word</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="cpick" accept=".xlsx" class="hide">
+<datalist id="custDL"></datalist>
+<datalist id="prodDL"></datalist>
 <input type="file" id="fpick" multiple accept=".xml,.pdf,.zip" class="hide">
 <input type="file" id="dpick" webkitdirectory class="hide">
 <datalist id="namesDL"></datalist>
@@ -442,16 +506,17 @@ function gone(msg){
 }
 
 /* ---------- views ---------- */
-const TITLES = {work:"Nhập đơn đề nghị thanh toán", ppl:"Danh sách người", guide:"Hướng dẫn vận hành", upd:"Cập nhật tool"};
+const TITLES = {work:"Nhập đơn đề nghị thanh toán", ppl:"Danh sách người", cust:"Danh sách khách hàng", prod:"Danh sách sản phẩm", guide:"Hướng dẫn vận hành", upd:"Cập nhật tool"};
 let VIEW = "work";
 function go(v){
   if(VIEW === "ppl" && v !== "ppl" && pplDirty() && !confirm("Danh sách người chưa lưu. Bỏ thay đổi?")) return;
+  if(v !== VIEW && lstDirty() && !confirm("Danh sách chưa lưu. Bỏ thay đổi?")) return;
   VIEW = v;
-  for(const k of ["work","ppl","guide","upd"]){
-    $("v-"+k).classList.toggle("hide", k !== v);
-    $("nav-"+k).classList.toggle("on", k === v);
-  }
+  for(const k of ["work","ppl","cust","prod","guide","upd"]) $("nav-"+k).classList.toggle("on", k === v);
+  for(const k of ["work","ppl","lst","guide","upd"]) $("v-"+k).classList.toggle("hide", k !== (v === "cust" || v === "prod" ? "lst" : v));
+  LK = "";
   if(v === "ppl") loadPpl();
+  if(v === "cust" || v === "prod") loadLst(v);
   $("title").textContent = TITLES[v];
   // an iframe with an empty src reports the page URL, so track it with a flag instead
   if(v === "guide") $("gframe").src = "/guide";
@@ -580,7 +645,7 @@ async function load(){
 
 function setBusy(on){
   busy = on;
-  ["b-check","b-fill","b-arch","b-upd","acc","b-acc"].forEach(id => { const b = $(id); if(b) b.disabled = on; });
+  ["b-check","b-fill","b-slip","b-arch","b-upd","acc","b-acc"].forEach(id => { const b = $(id); if(b) b.disabled = on; });
   $("spin").classList.toggle("hide", !on);
   $("b-stop").classList.toggle("hide", !on);
 }
@@ -725,6 +790,155 @@ async function saveAcc(){
   if(fresh >= 0) run("login");
 }
 async function stop(){ await api("/api/stop", {}); }
+
+/* ---------- step 3: approval slips ---------- */
+let SLIP = null;
+const slipFields = ["kh","khach","tu","den","lap","cp"];
+async function openSlip(){
+  const names = picked();
+  const r = await api("/api/slips?" + names.map(n => "n=" + encodeURIComponent(n)).join("&"));
+  if(r.error){ say("Không mở được tờ trình: " + r.error); return; }
+  SLIP = r;
+  $("custDL").innerHTML = (r.customers || []).map(c => '<option value="' + att(c) + '">').join("");
+  $("prodDL").innerHTML = r.products.map(c => '<option value="' + att(c) + '">').join("");
+  $("slipMsg").textContent = r.customers.length ? r.customers.length.toLocaleString("vi-VN") + " khách hàng trong danh mục" : "";
+  // every invoice already has its customer and products (picked before): make the files straight away,
+  // the window only opens for what is still missing or wrong
+  const rows = SLIP.people.flatMap(p => p.rows);
+  if(rows.length && rows.every(x => x.kh && x.sp.length)){
+    const done = await saveSlip();
+    if(done.bad === 0){
+      say("Đã tạo tờ trình: " + SLIP.people.filter(p => p.file).map(p => p.name + " (" + p.rows.length + " tờ)").join(", "));
+      for(const p of SLIP.people) if(p.file) openFile(p.file);
+      return;
+    }
+  } else drawSlip();
+  $("slipVeil").classList.remove("hide");
+}
+function closeSlip(){ $("slipVeil").classList.add("hide"); }
+// every slip gets a random customer and 1-2 random products from the two lists; pressing again re-rolls
+function randomSlip(){
+  const cust = SLIP.customers || [], prod = SLIP.products || [];
+  if(!cust.length){ $("slipMsg").textContent = 'Chưa có danh mục khách hàng, bấm "Nạp danh mục khách hàng" trước'; return; }
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  for(const p of SLIP.people) for(const r of p.rows){
+    r.kh = pick(cust);
+    const n = Math.min(prod.length, Math.random() < 0.67 ? 1 : 2), sp = [];
+    while(sp.length < n){ const x = pick(prod); if(!sp.includes(x)) sp.push(x); }
+    r.sp = sp; r.nd = "";
+    r.errs = (r.errs || []).filter(e => !/khách hàng|sản phẩm/.test(e));
+  }
+  $("slipMsg").textContent = "Đã chọn ngẫu nhiên, bấm Tạo file Word để xuất";
+  drawSlip();
+}
+function slipText(r){
+  if(r.nd) return r.nd;
+  const sp = r.sp.map(p => /^bảo hiểm/i.test(p) ? p : "Bảo hiểm " + p).join(", ") || "...";
+  return (SLIP.topics[r.topic] || SLIP.topics[0]).replace("{sp}", sp);
+}
+function drawSlip(){
+  const b = $("slipBody");
+  if(!SLIP.people.length){ b.innerHTML = '<div class="res">Chưa có ai trong đợt này.</div>'; return; }
+  let h = SLIP.customers.length ? "" :
+    '<div class="res w">Chưa có danh mục khách hàng. Bấm "Nạp danh mục khách hàng" và chọn file Danh mục khách hàng.xlsx.</div>';
+  SLIP.people.forEach((p, pi) => {
+    h += '<div class="slipp"><div class="sliph"><b>' + esc(p.name) + '</b>' +
+      '<select class="inp" data-p="' + pi + '" data-k="dept">' + SLIP.depts.map(d =>
+        '<option' + (d === p.dept ? " selected" : "") + '>' + esc(d) + '</option>').join("") + '</select>' +
+      (p.file ? '<button class="link" data-f="' + att(p.file) + '">Mở file đã tạo</button>' : '') +
+      (p.msg ? '<span class="res ' + (p.ok ? "" : "e") + '">' + esc(p.msg) + '</span>' : '') + '</div>';
+    if(!p.rows.length) h += '<div class="res">Không có hóa đơn XML.</div>';
+    p.rows.forEach((r, ri) => {
+      const at = ' data-p="' + pi + '" data-r="' + ri + '"';
+      h += '<div class="slipr' + (r.errs && r.errs.length ? ' bad' : '') + '">' +
+        '<div class="top" style="margin-bottom:8px">Hóa đơn <b>' + esc(r.so) + '</b> ngày <b>' + esc(r.ngay) + '</b>, <b>' + money(r.tong) +
+          '</b> đ, ' + esc(r.seller) + '</div><div class="sg">' +
+        '<span>Khách hàng</span><input class="inp" list="custDL" placeholder="Gõ tên để tìm trong danh mục"' + at +
+          ' data-k="kh" value="' + att(r.kh) + '">' +
+        '<span>Sản phẩm</span><div class="chips">' + r.sp.map((x, xi) =>
+          '<span class="chip">' + esc(x) + '<button title="Bỏ"' + at + ' data-x="' + xi + '">×</button></span>').join("") +
+          '<input class="inp" list="prodDL" placeholder="Thêm sản phẩm"' + at + ' data-k="addsp"></div>' +
+        '</div>' + (r.open || needOpen(r)
+          ? '<div class="sg" style="margin-top:6px">' +
+            '<span>Mẫu câu</span><select class="inp"' + at + ' data-k="topic">' + SLIP.topics.map((t, ti) =>
+              '<option value="' + ti + '"' + (ti == r.topic ? " selected" : "") + '>' + esc(t.replace("{sp}", "...")) + '</option>').join("") + '</select>' +
+            '<span>Nội dung</span><textarea class="inp" rows="2"' + at + ' data-k="nd">' + esc(slipText(r)) + '</textarea>' +
+            '<span>Thời gian dự kiến</span><div class="srow"><input class="inp" placeholder="dd/mm/yyyy"' + at + ' data-k="tu" value="' + att(r.tu) + '">' +
+              '<span>đến</span><input class="inp" placeholder="dd/mm/yyyy"' + at + ' data-k="den" value="' + att(r.den) + '"></div>' +
+            '<span>Ngày lập</span><div class="srow"><input class="inp" placeholder="dd/mm/yyyy"' + at + ' data-k="lap" value="' + att(r.lap) + '">' +
+              '<span>Số khách</span><input class="inp" style="flex-basis:70px" inputmode="numeric"' + at + ' data-k="khach" value="' + att(r.khach) + '">' +
+              '<span>Chi phí dự kiến</span><input class="inp" inputmode="numeric"' + at + ' data-k="cp" value="' + att(r.cp ? money(r.cp) : "") + '"></div></div>'
+          : '<div class="top" style="margin:8px 0 0">' + esc(slipText(r)) + '<br>' +
+            esc(r.tu === r.den ? r.tu : r.tu + " - " + r.den) + ', lập ngày ' + esc(r.lap) + ', ' + esc(r.khach) +
+            ' khách, chi phí dự kiến ' + money(r.cp) + ' đ <button class="link" data-open' + at + '>Sửa</button></div>') +
+        (r.errs && r.errs.length ? '<div class="errs">' + r.errs.map(esc).join("; ") + '</div>' : '') + '</div>';
+    });
+    h += '</div>';
+  });
+  b.innerHTML = h;
+}
+// the detail fields open by themselves when something in them is wrong
+function needOpen(r){ return (r.errs || []).some(e => !/khách hàng|sản phẩm/.test(e)); }
+function slipRow(el){ return SLIP.people[+el.dataset.p].rows[+el.dataset.r]; }
+$("slipBody").addEventListener("input", (e) => {
+  const el = e.target, k = el.dataset.k; if(!k) return;
+  if(k === "dept"){ SLIP.people[+el.dataset.p].dept = el.value; return; }
+  const r = slipRow(el);
+  if(slipFields.includes(k)) r[k] = el.value;
+  if(k === "nd") r.nd = el.value;
+  if(k === "addsp" && SLIP.products.includes(el.value)){
+    if(!r.sp.includes(el.value)){ r.sp.push(el.value); r.nd = ""; }
+    drawSlip(); focusSlip(el.dataset.p, el.dataset.r, "addsp");
+  }
+});
+$("slipBody").addEventListener("change", (e) => {
+  const el = e.target, k = el.dataset.k; if(!k) return;
+  if(k === "dept"){ SLIP.people[+el.dataset.p].dept = el.value; return; }
+  if(k === "topic"){ const r = slipRow(el); r.topic = +el.value; r.nd = ""; drawSlip(); }
+  if(k === "cp"){ const r = slipRow(el); const n = Number(el.value.replace(/\D/g, "")); r.cp = n || ""; el.value = n ? money(n) : ""; }
+});
+$("slipBody").addEventListener("click", (e) => {
+  const f = e.target.closest("[data-f]"); if(f) return openFile(f.dataset.f);
+  const o = e.target.closest("[data-open]"); if(o){ slipRow(o).open = true; drawSlip(); return; }
+  const x = e.target.closest("[data-x]"); if(!x) return;
+  const r = slipRow(x); r.sp.splice(+x.dataset.x, 1); r.nd = ""; drawSlip();
+});
+function focusSlip(p, r, k){
+  const el = document.querySelector('#slipBody [data-p="' + p + '"][data-r="' + r + '"][data-k="' + k + '"]');
+  if(el) el.focus();
+}
+async function saveSlip(){
+  const body = {people: SLIP.people.map(p => ({name: p.name, dept: p.dept,
+    rows: p.rows.map(r => ({xml: r.xml, kh: r.kh, sp: r.sp, topic: r.topic, nd: r.nd, khach: r.khach,
+                            tu: r.tu, den: r.den, lap: r.lap, cp: r.cp}))}))};
+  $("b-slipgo").disabled = true; $("slipMsg").textContent = "Đang tạo...";
+  const res = await api("/api/slips", body);
+  $("b-slipgo").disabled = false;
+  if(res.error){ $("slipMsg").textContent = "Không tạo được: " + res.error; return {ok: 0, bad: 1}; }
+  let ok = 0, bad = 0;
+  for(const x of res.results){
+    const p = SLIP.people.find(q => q.name === x.name); if(!p) continue;
+    const errs = {}; (x.bad || []).forEach(b => { errs[b.xml] = b.problems; });
+    p.rows.forEach(r => { r.errs = errs[r.xml] || []; });
+    if(x.file){ ok++; p.file = x.file; p.ok = true; p.msg = "Đã tạo " + x.count + " tờ trình"; }
+    else { bad++; p.ok = false; p.msg = x.error || (x.bad.length + " tờ trình cần sửa"); }
+  }
+  $("slipMsg").textContent = bad ? "Còn " + bad + " người cần sửa, xem các dòng đỏ" : "Đã tạo file cho " + ok + " người";
+  drawSlip();
+  return {ok, bad};
+}
+$("cpick").onchange = async () => {
+  const f = $("cpick").files[0]; $("cpick").value = ""; if(!f) return;
+  $("slipMsg").textContent = "Đang nạp danh mục...";
+  let r;
+  try {
+    const res = await fetch("/api/customers", {method:"POST", headers:{"X-Token":T}, body: await f.arrayBuffer()});
+    r = await res.json();
+  } catch(e){ r = {error: "không gửi được file"}; }
+  if(r.error){ $("slipMsg").textContent = r.error; return; }
+  if(SLIP){ SLIP.customers = r.customers; $("custDL").innerHTML = r.customers.map(c => '<option value="' + att(c) + '">').join(""); drawSlip(); }
+  $("slipMsg").textContent = "Đã nạp " + r.count.toLocaleString("vi-VN") + " khách hàng";
+};
 
 /* ---------- intake: drop folders/files on the window -> data\<Họ tên>\ ---------- */
 // A group = one person: {name, files:[{file, sub}]}. sub "check" keeps files of a check\ subfolder there.
@@ -1065,6 +1279,51 @@ async function savePpl(){
   await loadPpl();
   $("pmsg").textContent = "Đã lưu " + r.count + " người vào people.xlsx.";
 }
+
+/* ---------- customer / product lists (kept on this machine) ---------- */
+const LSHOW = 300;                                     // 1,700 customers: show a page, the search finds the rest
+let LK = "", LST = [], LST0 = "";
+const lstDirty = () => LK && JSON.stringify(LST) !== LST0;
+async function loadLst(k){
+  LK = k; $("lq").value = ""; $("lmsg").textContent = "";
+  $("lhead").textContent = k === "cust" ? "Tên khách hàng" : "Tên sản phẩm";
+  const r = await api("/api/list?k=" + k);
+  if(r.error){ $("lmsg").textContent = r.error; return; }
+  LST = r.items.slice(); LST0 = JSON.stringify(LST);
+  drawLst();
+}
+function drawLst(){
+  const q = fold($("lq").value);
+  const all = LST.map((n, i) => ({n, i})).filter(x => !q || fold(x.n).includes(q));
+  const rows = all.slice(0, LSHOW);
+  $("lrows").innerHTML = rows.map(x => '<tr><td><input data-i="' + x.i + '" value="' + att(x.n) + '"></td>' +
+    '<td style="text-align:right"><button class="link" data-del="' + x.i + '">Xóa</button></td></tr>').join("");
+  $("lcount").textContent = (q ? all.length.toLocaleString("vi-VN") + " / " : "") + LST.length.toLocaleString("vi-VN") +
+    (LK === "cust" ? " khách hàng" : " sản phẩm") + (all.length > LSHOW ? ", hiện " + LSHOW + " dòng đầu, gõ để tìm" : "");
+  $("b-lsave").disabled = !lstDirty();
+}
+$("lrows").addEventListener("input", (e) => { const i = e.target.dataset.i; if(i == null) return;
+  LST[+i] = e.target.value; $("b-lsave").disabled = !lstDirty(); });
+$("lrows").addEventListener("click", (e) => { const d = e.target.closest("[data-del]"); if(!d) return;
+  LST.splice(+d.dataset.del, 1); drawLst(); });
+function addLst(){ $("lq").value = ""; LST.unshift(""); drawLst(); const f = $("lrows").querySelector("input"); if(f) f.focus(); }
+async function saveLst(){
+  const r = await api("/api/list", {k: LK, items: LST});
+  if(r.error){ $("lmsg").innerHTML = '<div class="e">' + esc(r.error) + '</div>'; return; }
+  LST = r.items.slice(); LST0 = JSON.stringify(LST); drawLst();
+  $("lmsg").textContent = "Đã lưu " + LST.length.toLocaleString("vi-VN") + " dòng.";
+}
+$("lpick").onchange = async () => {
+  const f = $("lpick").files[0]; $("lpick").value = ""; if(!f) return;
+  if(lstDirty() && !confirm("Danh sách đang sửa chưa lưu sẽ bị thay bằng file này. Tiếp tục?")) return;
+  $("lmsg").textContent = "Đang nạp...";
+  let r;
+  try { r = await (await fetch("/api/list/import?k=" + LK, {method:"POST", headers:{"X-Token":T}, body: await f.arrayBuffer()})).json(); }
+  catch(e){ r = {error: "không gửi được file"}; }
+  if(r.error){ $("lmsg").innerHTML = '<div class="e">' + esc(r.error) + '</div>'; return; }
+  LST = r.items.slice(); LST0 = JSON.stringify(LST); drawLst();
+  $("lmsg").textContent = "Đã nạp " + r.count.toLocaleString("vi-VN") + " dòng từ " + f.name + ".";
+};
 
 /* ---------- misc ---------- */
 async function open_(what, name){
