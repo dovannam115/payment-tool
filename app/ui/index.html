@@ -238,6 +238,7 @@
     <button id="nav-ppl" onclick="go('ppl')">Danh sách người</button>
     <button id="nav-cust" onclick="go('cust')">Danh sách khách hàng</button>
     <button id="nav-prod" onclick="go('prod')">Danh sách sản phẩm</button>
+    <button id="nav-dept" onclick="go('dept')">Danh sách phòng</button>
     <button id="nav-guide" onclick="go('guide')">Hướng dẫn</button>
     <button id="nav-upd" onclick="go('upd')">Cập nhật<span class="dot" id="updDot"></span></button>
   </nav>
@@ -506,17 +507,17 @@ function gone(msg){
 }
 
 /* ---------- views ---------- */
-const TITLES = {work:"Nhập đơn đề nghị thanh toán", ppl:"Danh sách người", cust:"Danh sách khách hàng", prod:"Danh sách sản phẩm", guide:"Hướng dẫn vận hành", upd:"Cập nhật tool"};
+const TITLES = {work:"Nhập đơn đề nghị thanh toán", ppl:"Danh sách người", cust:"Danh sách khách hàng", prod:"Danh sách sản phẩm", dept:"Danh sách phòng", guide:"Hướng dẫn vận hành", upd:"Cập nhật tool"};
 let VIEW = "work";
 function go(v){
   if(VIEW === "ppl" && v !== "ppl" && pplDirty() && !confirm("Danh sách người chưa lưu. Bỏ thay đổi?")) return;
   if(v !== VIEW && lstDirty() && !confirm("Danh sách chưa lưu. Bỏ thay đổi?")) return;
   VIEW = v;
-  for(const k of ["work","ppl","cust","prod","guide","upd"]) $("nav-"+k).classList.toggle("on", k === v);
-  for(const k of ["work","ppl","lst","guide","upd"]) $("v-"+k).classList.toggle("hide", k !== (v === "cust" || v === "prod" ? "lst" : v));
+  for(const k of ["work","ppl","cust","prod","dept","guide","upd"]) $("nav-"+k).classList.toggle("on", k === v);
+  for(const k of ["work","ppl","lst","guide","upd"]) $("v-"+k).classList.toggle("hide", k !== (LKIND[v] ? "lst" : v));
   LK = "";
   if(v === "ppl") loadPpl();
-  if(v === "cust" || v === "prod") loadLst(v);
+  if(LKIND[v]) loadLst(v);
   $("title").textContent = TITLES[v];
   // an iframe with an empty src reports the page URL, so track it with a flag instead
   if(v === "guide") $("gframe").src = "/guide";
@@ -821,14 +822,25 @@ function randomSlip(){
   const cust = SLIP.customers || [], prod = SLIP.products || [];
   if(!cust.length){ $("slipMsg").textContent = 'Chưa có danh mục khách hàng, bấm "Nạp danh mục khách hàng" trước'; return; }
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  // a customer another person of the same department has in that month is left out (one customer per
+  // department and month); the same person may get a customer again
+  const mon = s => { const m = /^\d{1,2}\/(\d{1,2})\/(\d{4})$/.exec(s || ""); return m ? (+m[1] < 10 ? "0" : "") + (+m[1]) + "/" + m[2] : ""; };
+  const used = (SLIP.taken || []).map(t => ({name: t.name, dept: t.dept, month: t.month, kh: t.kh.toLowerCase()}));
+  let full = 0;
   for(const p of SLIP.people) for(const r of p.rows){
-    r.kh = pick(cust);
+    const m = mon(r.ngay);
+    const busy = new Set(used.filter(u => u.name !== p.name && u.dept === p.dept && u.month === m).map(u => u.kh));
+    const free = cust.filter(c => !busy.has(c.toLowerCase()));
+    if(!free.length) full++;
+    r.kh = pick(free.length ? free : cust);
+    used.push({name: p.name, dept: p.dept, month: m, kh: r.kh.toLowerCase()});
     const n = Math.min(prod.length, Math.random() < 0.67 ? 1 : 2), sp = [];
     while(sp.length < n){ const x = pick(prod); if(!sp.includes(x)) sp.push(x); }
     r.sp = sp; r.nd = "";
     r.errs = (r.errs || []).filter(e => !/khách hàng|sản phẩm/.test(e));
   }
-  $("slipMsg").textContent = "Đã chọn ngẫu nhiên, bấm Tạo file Word để xuất";
+  $("slipMsg").textContent = full ? "Hết khách hàng chưa dùng trong phòng, " + full + " tờ trình bị trùng, xem lại danh mục"
+                                  : "Đã chọn ngẫu nhiên, bấm Tạo file Word để xuất";
   drawSlip();
 }
 function slipText(r){
@@ -1281,12 +1293,13 @@ async function savePpl(){
 }
 
 /* ---------- customer / product lists (kept on this machine) ---------- */
+const LKIND = {cust: ["Tên khách hàng", " khách hàng"], prod: ["Tên sản phẩm", " sản phẩm"], dept: ["Tên phòng (in lên tờ trình, ví dụ Phòng Kinh doanh)", " phòng"]};
 const LSHOW = 300;                                     // 1,700 customers: show a page, the search finds the rest
 let LK = "", LST = [], LST0 = "";
 const lstDirty = () => LK && JSON.stringify(LST) !== LST0;
 async function loadLst(k){
   LK = k; $("lq").value = ""; $("lmsg").textContent = "";
-  $("lhead").textContent = k === "cust" ? "Tên khách hàng" : "Tên sản phẩm";
+  $("lhead").textContent = LKIND[k][0];
   const r = await api("/api/list?k=" + k);
   if(r.error){ $("lmsg").textContent = r.error; return; }
   LST = r.items.slice(); LST0 = JSON.stringify(LST);
@@ -1299,7 +1312,7 @@ function drawLst(){
   $("lrows").innerHTML = rows.map(x => '<tr><td><input data-i="' + x.i + '" value="' + att(x.n) + '"></td>' +
     '<td style="text-align:right"><button class="link" data-del="' + x.i + '">Xóa</button></td></tr>').join("");
   $("lcount").textContent = (q ? all.length.toLocaleString("vi-VN") + " / " : "") + LST.length.toLocaleString("vi-VN") +
-    (LK === "cust" ? " khách hàng" : " sản phẩm") + (all.length > LSHOW ? ", hiện " + LSHOW + " dòng đầu, gõ để tìm" : "");
+    LKIND[LK][1] + (all.length > LSHOW ? ", hiện " + LSHOW + " dòng đầu, gõ để tìm" : "");
   $("b-lsave").disabled = !lstDirty();
 }
 $("lrows").addEventListener("input", (e) => { const i = e.target.dataset.i; if(i == null) return;
