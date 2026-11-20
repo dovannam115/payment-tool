@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.7 (2026-11-20)
+- After Download and install, the tool restarts by itself, so the new lists and pages work right away.
+- If the tool was updated but not restarted, the lists now say to restart it instead of showing "bad response".
+
 1.6 (2026-11-20)
 - New Departments list in the sidebar: departments for the approval slips can be added, renamed and removed on each machine.
 - Two different people of the same department can no longer get the same customer in the same invoice month, checked against the current batch and finished files. The slip shows the clash in red and the file is not made until it is fixed.
