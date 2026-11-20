@@ -61,7 +61,7 @@
 <body>
 <div class="page">
   <h1>Payment Tool</h1>
-  <div class="sub">Lần đầu nhấn đúp "Install.bat", sau đó mở bằng ô tìm kiếm Windows, gõ "Payment Tool". Làm 1, 2, 3.</div>
+  <div class="sub">Lần đầu nhấn đúp "Install.bat", sau đó mở bằng ô tìm kiếm Windows, gõ "Payment Tool". Làm 1, 2, 3, 4.</div>
 
   <div class="flow">
     <div class="node">
@@ -80,7 +80,12 @@
     </div>
     <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
     <div class="node">
-      <div class="n">Bước 3</div><b>Hoàn tất</b>
+      <div class="n">Bước 3</div><b>Tờ trình tiếp khách</b>
+<span>Một file Word mỗi người</span>
+</div>
+<div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12h15M13 6l6 6-6 6"/></svg></div>
+<div class="node">
+<div class="n">Bước 4</div><b>Hoàn tất</b>
       <span>Cất hồ sơ đã nộp</span>
     </div>
   </div>
@@ -104,6 +109,7 @@
     HoaDon_001.pdf        <i>bản thể hiện</i>
     ToTrinh_Nguon.pdf     <i>tờ trình</i>
     check\                <i>tool tự tạo ở Bước 1</i>
+    to_trinh\             <i>tờ trình tiếp khách, Bước 3</i>
 done\
   2026-10\<u>&lt;Họ tên&gt;</u>\        <i>hồ sơ đã hoàn tất</i></div>
     </div>
@@ -117,7 +123,15 @@ done\
     </div>
   </div>
 
-  <h2>Bước 2 làm những gì</h2>
+  <h2>Bước 3: tờ trình tiếp khách</h2>
+<div class="box">
+<div class="note"><b>Mỗi hóa đơn</b><span>Một Giấy đề nghị duyệt chi phí tiếp khách hàng. Chọn phòng, khách hàng, sản phẩm; ngày, số khách, chi phí tool tự điền theo hóa đơn</span></div>
+<div class="note"><b>Ngẫu nhiên</b><span>Tự chọn khách hàng và sản phẩm từ danh mục, bỏ qua khách đã dùng cho người khác cùng phòng trong tháng. Bấm lại để đổi</span></div>
+<div class="note"><b>Không trùng khách</b><span>Hai người cùng phòng không tiếp cùng một khách trong cùng tháng hóa đơn, kể cả hồ sơ đã Hoàn tất. Trùng thì báo đỏ, không tạo file</span></div>
+<div class="note"><b>Dòng đỏ</b><span>Tờ trình còn thiếu hoặc sai, sửa theo lý do rồi bấm Tạo file Word lại</span></div>
+<div class="note"><b>Danh mục</b><span>Danh sách khách hàng (nạp một lần từ Excel), sản phẩm (có sẵn) và phòng (thêm được) ở thanh bên trái</span></div>
+</div>
+<h2>Bước 2 làm những gì</h2>
   <div class="box">
     <div class="note"><b>Điền</b><span>Ngày, người đề nghị, hình thức, ngân hàng, diễn giải</span></div>
     <div class="note"><b>Import</b><span>XML từng hóa đơn vào bảng trên cổng</span></div>
