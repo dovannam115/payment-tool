@@ -1,5 +1,11 @@
 Payment Tool - release notes
 
+1.6 (2026-11-20)
+- New Departments list in the sidebar: departments for the approval slips can be added, renamed and removed on each machine.
+- Two different people of the same department can no longer get the same customer in the same invoice month, checked against the current batch and finished files. The slip shows the clash in red and the file is not made until it is fixed.
+- The Random button leaves out customers another person of the same department already has that month.
+- Updated guide for Step 3 and Step 4.
+
 1.5 (2026-11-20)
 - New Step 3: client-meeting approval slips. One Word file per person, one slip per invoice, with dates, guests and budget filled from the invoice.
 - Customer and product lists can be loaded from Excel. The Random button picks a customer and products for every slip.
