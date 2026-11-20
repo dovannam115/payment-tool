@@ -492,6 +492,10 @@ async function api(path, body){
   // 403 = another window took over with a new key, so this one is left over from an older start
   if(r.status === 403){ gone("Cửa sổ này đã cũ, tool đang chạy ở cửa sổ khác."); return {error:"token"}; }
   dead = 0;
+  // the page is read from disk on every load, the server only on start: after an update without a restart
+  // the new page asks an old server for things it does not have yet
+  const OLD = "Tool vừa cập nhật nhưng chưa khởi động lại. Vào mục Cập nhật bấm Khởi động lại tool, hoặc Thoát rồi mở lại tool.";
+  if(r.status === 404){ say(OLD); return {error: OLD}; }
   try { return await r.json(); } catch(e){ return {error:"bad response"}; }
 }
 
@@ -720,7 +724,8 @@ async function poll(){
     $("askBar").classList.add("hide");
     $("progRow").classList.add("hide");
     load();
-    if(j.action === "update" && (j.rc === null || j.rc === 0)) $("b-restart").classList.remove("hide");
+    // installed: restart straight away, so the server and the page are the same version
+    if(j.action === "update" && (j.rc === null || j.rc === 0)){ $("b-restart").classList.remove("hide"); restart(); }
   }
 }
 async function answer(){ $("askBar").classList.add("hide"); await api("/api/answer", {text:""}); }
