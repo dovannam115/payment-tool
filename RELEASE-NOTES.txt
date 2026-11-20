@@ -1,5 +1,9 @@
 Payment Tool - release notes
 
+1.5 (2026-11-20)
+- New Step 3: client-meeting approval slips. One Word file per person, one slip per invoice, with dates, guests and budget filled from the invoice.
+- Customer and product lists can be loaded from Excel. The Random button picks a customer and products for every slip.
+
 1.4.4 (2026-11-19)
 - System update.
 
