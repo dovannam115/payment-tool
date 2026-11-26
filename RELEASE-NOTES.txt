@@ -1,5 +1,11 @@
 Payment Tool - release notes
 
+2.0 (2026-11-26)
+- Each person in the batch now has an Add files button, so a forgotten approval paper (to trinh), invoice or check result can be added right on that row.
+- Each person in the batch now has a Delete button. The folder goes to app\dump\trash instead of being erased, so a wrong delete can be undone.
+- An approval paper (to trinh) already used in a finished batch is accepted again. Only invoices and check results already sent are skipped.
+- Internal improvements.
+
 1.9 (2026-11-26)
 - Step 1: the check result PDF now waits until the check page has finished loading, so it no longer comes out grey with a loading circle in the middle.
 

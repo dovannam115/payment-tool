@@ -465,8 +465,11 @@ def save_one(person, fname, data, sub=""):
     ext = os.path.splitext(base)[1].lower()
     if ext not in (".xml", ".pdf") or base.startswith(("~$", ".")):
         return {"skipped": base, "note": "không phải XML/PDF"}
-    if base.lower() in done_names(person):
-        return {"skipped": base, "note": "đã nộp trước đây (có trong hồ sơ đã hoàn tất)"}
+    # an invoice (XML, invoice PDF, check result) already in done\ was sent before -> skip it;
+    # a tờ trình is reused batch after batch, so it is always taken
+    done = base.lower() in done_names(person)
+    SENT = {"skipped": base, "note": "đã nộp trước đây (có trong hồ sơ đã hoàn tất)"}
+    if done and (ext == ".xml" or sub == "check"): return SENT
     tdir = os.path.join(pdir, "check") if sub == "check" else pdir
     os.makedirs(tdir, exist_ok=True)
     target, note = os.path.join(tdir, base), ""
@@ -477,8 +480,11 @@ def save_one(person, fname, data, sub=""):
         target = os.path.join(tdir, "%s_%d%s" % (b, k, e))
         note = "trùng tên với file khác, lưu thành " + os.path.basename(target)
     with open(target, "wb") as fh: fh.write(data)
+    kind = pdf_kind(pdf_text(target)) if ext == ".pdf" else ""
+    if done and kind in ("invoice", "check"):
+        os.remove(target); return SENT
     # a check result dropped together with the invoices goes to check\ by itself
-    if ext == ".pdf" and sub != "check" and pdf_kind(pdf_text(target)) == "check":
+    if ext == ".pdf" and sub != "check" and kind == "check":
         cdir = os.path.join(pdir, "check"); os.makedirs(cdir, exist_ok=True)
         dest = os.path.join(cdir, os.path.basename(target))
         os.replace(target, dest); target = dest
@@ -497,6 +503,21 @@ def tidy(person):
         notes.append("%s: khác tên XML nhưng khớp số hóa đơn %s, đã đổi tên thành %s"
                      % (os.path.basename(iv["pdf"]), iv["sh"].lstrip("0"), os.path.basename(dest)))
     return notes
+
+
+TRASH = os.path.join(DUMP, "trash")
+
+def remove_person(name):
+    """'Xóa' on a person row: data\\<Họ tên>\\ goes to app\\dump\\trash\\<Họ tên>_<time>, never deleted,
+    so a wrong click can be undone by moving the folder back."""
+    if name not in people_dirs(): return {"error": "Không thấy thư mục của %s trong đợt này" % name}
+    os.makedirs(TRASH, exist_ok=True)
+    dest = os.path.join(TRASH, "%s_%s" % (name, time.strftime("%Y%m%d_%H%M%S")))
+    try: shutil.move(os.path.join(DATA, name), dest)
+    except Exception as ex:
+        return {"error": "Không chuyển được thư mục (có file đang mở?): %s" % ex}
+    log("removed %s -> %s" % (name, dest))
+    return {"ok": True, "trash": dest}
 
 
 def make_dirs(raw_names):
@@ -888,6 +909,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"results": out})
         if p == "/api/mkdir":
             return self.json(make_dirs(d.get("names") or []))
+        if p == "/api/remove":
+            if RUN.busy: return self.json({"error": "Đang chạy một bước, chờ xong rồi xóa"}, 409)
+            r = remove_person(d.get("name") or "")
+            return self.json(r, 400 if r.get("error") else 200)
         if p == "/api/tidy":
             notes = []
             for n in d.get("names") or []:
@@ -1096,8 +1121,12 @@ def main():
         try: TOKEN = open(TOKFILE, encoding="utf-8").read().strip()
         except Exception: TOKEN = ""
         log("already running, opening the window")
+        # every opening is reported, not only a fresh server start (the owner gets a mail per opening)
+        rep = threading.Thread(target=A.check, args=("Payment Tool", version()), daemon=True)
+        rep.start()
         t = open_ui()
         if t: t.join()   # this process exits right after, so wait for the window to be maximized
+        rep.join(30)
         return
     TOKEN = os.urandom(16).hex()
     open(TOKFILE, "w", encoding="utf-8").write(TOKEN)

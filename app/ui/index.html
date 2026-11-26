@@ -302,7 +302,7 @@
       <table>
         <thead><tr>
           <th style="width:30px"></th><th>Họ tên</th><th class="n">Hóa đơn</th><th class="n">PDF</th>
-          <th class="n">Check</th><th class="n">Tờ trình</th><th>Trạng thái</th><th style="width:150px"></th>
+          <th class="n">Check</th><th class="n">Tờ trình</th><th>Trạng thái</th><th style="width:250px"></th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table>
@@ -555,6 +555,8 @@ function drawPeople(){
     const f = e.target.closest("[data-f]");      if(f) return openFile(f.dataset.f);
     const t = e.target.closest("[data-t]");      if(t) return toggle(+t.dataset.t, t.dataset.name);
     const d = e.target.closest("[data-folder]"); if(d) return open_("person", d.dataset.folder);
+    const a = e.target.closest("[data-add]");    if(a){ pickFor = a.dataset.add; return $("fpick").click(); }
+    const x = e.target.closest("[data-del]");    if(x) return removePerson(x.dataset.del);
   };
   const ppl = ST.people || [];
   $("noppl").classList.toggle("hide", ppl.length > 0);
@@ -579,7 +581,9 @@ function drawPeople(){
       '<td>' + pill + '</td>' +
       '<td style="text-align:right">' +
         '<button class="link" data-t="' + i + '" data-name="' + att(p.name) + '">Chi tiết</button>' +
+        '<button class="link" data-add="' + att(p.name) + '" title="Thêm hóa đơn, tờ trình, kết quả kiểm tra cho người này">Thêm file</button>' +
         '<button class="link" data-folder="' + att(p.name) + '">Mở thư mục</button>' +
+        '<button class="link" data-del="' + att(p.name) + '" style="color:var(--bad,#d9534f)" title="Bỏ người này khỏi đợt">Xóa</button>' +
       '</td>';
     tb.appendChild(tr);
     const d = document.createElement("tr");
@@ -1224,14 +1228,22 @@ window.addEventListener("drop", async e => {
     mergeGroups(groupFiles(items, GROUPS[gi].name || "_"), gi);
   } else openIntake(groupFiles(items, t ? t.dataset.person : ""));
 });
-let pickInto = null;
-function pickFiles(dir, gi){ pickInto = gi == null ? null : gi; $(dir ? "dpick" : "fpick").click(); }
+let pickInto = null, pickFor = null;   // pickFor: "Thêm file" on a person row
+function pickFiles(dir, gi){ pickInto = gi == null ? null : gi; pickFor = null; $(dir ? "dpick" : "fpick").click(); }
+async function removePerson(name){
+  if(busy){ say("Đang chạy một bước, chờ xong rồi xóa."); return; }
+  if(!confirm("Xóa " + name + " khỏi đợt này?\n\nThư mục của người này được chuyển vào thùng rác của app (app\\dump\\trash), không mất hẳn.")) return;
+  const r = await api("/api/remove", {name});
+  if(r.error){ say(r.error); return; }
+  shown.delete(name); lastPeople = ""; load();
+}
 for(const id of ["fpick", "dpick"]){
   $(id).onchange = (e) => {
     const items = [...e.target.files].map(f => ({file:f, path:f.webkitRelativePath || f.name}));
     e.target.value = "";
-    if(!items.length) return;
-    if(pickInto != null && GROUPS[pickInto]) mergeGroups(groupFiles(items, GROUPS[pickInto].name || "_"), pickInto);
+    if(!items.length){ pickFor = null; return; }
+    if(pickFor){ const n = pickFor; pickFor = null; openIntake(groupFiles(items, n)); }
+    else if(pickInto != null && GROUPS[pickInto]) mergeGroups(groupFiles(items, GROUPS[pickInto].name || "_"), pickInto);
     else openIntake(groupFiles(items, ""));
     pickInto = null;
   };
