@@ -1,11 +1,10 @@
 {
-  "rev": 9,
+  "rev": 10,
   "enforce": false,
   "allowed": [],
   "blocked": [
     "ebdd55eb6c6b3fba3d3ead18f18ed39db7752846d1bd39ac56be41040ee33e9f",
-    "a23961e48b4f3006db014877e8a4e01c7804481af85f7e0e9c64f572deec211b",
-    "5f2ee57b7a680c524ad61db9b1fe4c757062ece13e00aff37735a12011b95639"
+    "a23961e48b4f3006db014877e8a4e01c7804481af85f7e0e9c64f572deec211b"
   ],
   "contact": "Nam (namdv1@pvi.com.vn)",
   "report": {
