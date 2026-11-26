@@ -1,5 +1,8 @@
 Payment Tool - release notes
 
+1.9 (2026-11-26)
+- Step 1: the check result PDF now waits until the check page has finished loading, so it no longer comes out grey with a loading circle in the middle.
+
 1.8 (2026-11-26)
 - Internal improvements.
 

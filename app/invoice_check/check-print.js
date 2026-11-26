@@ -235,7 +235,31 @@ async function hideWidgets(rp) {
   await rp.evaluate((sel) => document.querySelectorAll(sel).forEach(e => e.remove()), WIDGETS).catch(() => {});
 }
 
+// The site's own loading veil (grey layer + spinner, div.app-loading / body.loading) comes back for
+// late requests. Printed while it is up, the PDF is greyed out with a spinner in the middle.
+function loadingUp() {
+  if (document.body.classList.contains('loading')) return true;
+  return [...document.querySelectorAll('.app-loading,.loader')].some(e => {
+    const s = getComputedStyle(e), r = e.getBoundingClientRect();
+    return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0 && r.width > 0 && r.height > 0;
+  });
+}
+async function waitLoaded(rp) {
+  const t0 = Date.now();
+  let clear = 0;                  // must stay gone 1s in a row, the veil blinks between requests
+  while (Date.now() - t0 < 30000) {
+    const up = await rp.evaluate(loadingUp).catch(() => false);
+    clear = up ? 0 : clear + 1;
+    if (clear >= 4) return true;
+    await rp.waitForTimeout(250);
+  }
+  // still spinning after 30s: hide the veil so the result underneath is readable
+  await rp.addStyleTag({ content: '.app-loading,.loader{display:none !important}' }).catch(() => {});
+  return false;
+}
+
 async function savePdf(ctx, rp, outFile) {
+  if (!await waitLoaded(rp)) console.log(`   ! page still loading after 30s, printed anyway: ${path.basename(outFile)}`);
   await hideWidgets(rp);          // last chance: the widget may have come back while we waited
   const client = await ctx.newCDPSession(rp);
   // ALWAYS one A4 page: shrink the scale until the PDF has a single page
@@ -339,6 +363,7 @@ async function savePdf(ctx, rp, outFile) {
       try {
         const res = await openResultPage(ctx, r.id, opt.tax), rp = res.rp;
         setResult(r, res, opt.tax);
+        await waitLoaded(rp);
         await rp.evaluate(() => window.print());
         await rp.waitForTimeout(2500);
         await rp.close();
