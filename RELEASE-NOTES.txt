@@ -1,5 +1,8 @@
 Payment Tool - release notes
 
+1.8 (2026-11-26)
+- Internal improvements.
+
 1.7 (2026-11-20)
 - After Download and install, the tool restarts by itself, so the new lists and pages work right away.
 - If the tool was updated but not restarted, the lists now say to restart it instead of showing "bad response".

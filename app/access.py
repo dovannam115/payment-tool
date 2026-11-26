@@ -102,9 +102,24 @@ def check(app, ver, report=True):
     if report: _report(j, app, ver)
 
 
-def start(app, ver):
+def _watch(app, ver, every):
+    """A window left open for days must still pick up a new block: read GitHub again every few minutes."""
+    check(app, ver)
+    while True:
+        time.sleep(every)
+        try:
+            rj = _remote()
+            if rj is None: continue
+            _apply(rj, "github")
+            os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+            json.dump(rj, open(CACHE, "w", encoding="utf-8"))
+        except Exception:
+            pass
+
+
+def start(app, ver, every=300):
     READY.clear()
-    threading.Thread(target=check, args=(app, ver), daemon=True).start()
+    threading.Thread(target=_watch, args=(app, ver, every), daemon=True).start()
 
 
 def status(wait=8):

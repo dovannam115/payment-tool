@@ -13,6 +13,10 @@ from layout import (APP, ROOT, DATA, DONE, PEOPLE, people_dirs, scan_full, read_
 import access as A
 import slip as SL
 
+# a locked PC still gets the page, its lock screen, the update and the close buttons; every other API says 409
+FREE_GET  = {"/api/state", "/api/access", "/api/job", "/api/update/check"}
+FREE_POST = {"/api/ping", "/api/run", "/api/answer", "/api/stop", "/api/restart", "/api/quit"}
+
 PORT    = 8711
 HOST    = "127.0.0.1"
 UI      = os.path.join(APP, "ui")
@@ -775,6 +779,9 @@ class Handler(BaseHTTPRequestHandler):
         try: return json.loads(self.rfile.read(n).decode("utf-8"))
         except Exception: return {}
 
+    def locked(self):
+        return self.json({"error": "This PC is locked. Contact %s to unlock it." % (A.STATE["contact"] or "the tool owner")}, 409)
+
     def do_GET(self):
         u = urlparse(self.path); q = parse_qs(u.query); p = u.path
         if p in ("/", "/index.html"):
@@ -784,6 +791,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/guide":
             if not os.path.exists(GUIDE): return self._send(404, b"no guide", "text/plain")
             return self._send(200, open(GUIDE, "rb").read(), "text/html; charset=utf-8")
+        if p.startswith("/api/") and p not in FREE_GET and not A.STATE["ok"]:
+            if not self.ok_token(q): return self.json({"error": "token"}, 403)
+            return self.locked()
         if p == "/api/state":
             if not self.ok_token(q): return self.json({"error": "token"}, 403)
             return self.json(state())
@@ -826,6 +836,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urlparse(self.path); q = parse_qs(u.query); p = u.path
         if not self.ok_token(q): return self.json({"error": "token"}, 403)
+        if not A.STATE["ok"] and p not in FREE_POST:
+            try: self.rfile.read(int(self.headers.get("Content-Length") or 0))   # unread body = reset
+            except Exception: pass
+            return self.locked()
         if p in ("/api/customers", "/api/list/import"):
             # raw .xlsx in the body: the customer list (or ?k=prod the product list) replaces the saved one
             k = "cust" if p == "/api/customers" else q.get("k", [""])[0]
@@ -884,8 +898,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/run":
             action = d.get("action"); names = d.get("names") or []
             if RUN.busy: return self.json({"error": "busy"}, 409)
-            if action != "update" and not A.STATE["ok"]:
-                return self.json({"error": "This PC is locked. Contact %s to unlock it." % (A.STATE["contact"] or "the tool owner")}, 409)
+            if action != "update" and not A.STATE["ok"]: return self.locked()
             if action == "check":
                 job = Job(action, step_check(names, bool(d.get("redo")), d.get("tax", True) is not False), "Kiểm tra hóa đơn")
             elif action == "fill":
